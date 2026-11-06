@@ -1,14 +1,14 @@
 <template>
   <div class="seat-wrap">
     <div class="seat-legend">
-      <span class="legend-item free">
-        <span class="swatch free"></span> {{ t("seat_free") }}
+      <span class="legend-item">
+        <i class="fa-solid fa-seat legend-free"></i> {{ t("seat_free") }}
       </span>
-      <span class="legend-item selected">
-        <span class="swatch selected"></span> {{ t("seat_selected") }}
+      <span class="legend-item">
+        <i class="fa-solid fa-seat legend-selected"></i> {{ t("seat_selected") }}
       </span>
-      <span class="legend-item occupied">
-        <span class="swatch occupied"></span> {{ t("seat_occupied") }}
+      <span class="legend-item">
+        <i class="fa-solid fa-seat legend-occupied"></i> {{ t("seat_occupied") }}
       </span>
     </div>
     <div class="screen">
@@ -20,7 +20,7 @@
         <div class="col-header"></div>
         <template v-for="c in colNumbers" :key="'h' + c">
           <div v-if="c === aisleBefore" class="aisle" aria-hidden="true"></div>
-          <div class="col-header">{{ c }}</div>
+          <div class="col-header">{{ String(c).padStart(2, "0") }}</div>
         </template>
         <!-- seat rows -->
         <template v-for="r in rowLetters" :key="r">
@@ -128,23 +128,14 @@ function onSeat(r, c) {
   font-size: 0.82rem;
   color: var(--muted);
 }
-.swatch {
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  display: inline-block;
+.legend-free {
+  color: var(--free);
 }
-.swatch.free {
-  background: var(--free-bg);
-  border: 1px solid var(--free);
+.legend-selected {
+  color: var(--accent-soft);
 }
-.swatch.selected {
-  background: var(--selected);
-  border: 1px solid var(--selected);
-}
-.swatch.occupied {
-  background: var(--occupied-bg);
-  border: 1px solid var(--occupied);
+.legend-occupied {
+  color: var(--occupied);
 }
 .screen {
   height: 8px;
@@ -190,9 +181,6 @@ function onSeat(r, c) {
   .seat {
     border-radius: 4px;
   }
-  .seat i {
-    font-size: 0.5rem;
-  }
   .row-label,
   .col-header {
     font-size: 0.45rem;
@@ -214,32 +202,31 @@ function onSeat(r, c) {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.9rem;
-  font-weight: 600;
-  border-radius: 5px;
   cursor: pointer;
   user-select: none;
-  transition: transform 0.1s ease, background 0.1s ease;
+  transition: transform 0.1s ease;
+}
+.seat i {
+  font-size: 1rem;
+  transition: color 0.1s ease;
+}
+@media (max-width: 600px) {
+  .seat i {
+    font-size: 0.55rem;
+  }
 }
 .seat.free {
-  background: var(--free-bg);
-  border: 1px solid var(--free);
-  color: #fff;
+  color: var(--free);
 }
 .seat.free:hover {
-  transform: scale(1.12);
+  transform: scale(1.15);
 }
 .seat.selected {
-  background: var(--selected);
-  border: 1px solid var(--selected);
-  color: #fff;
-  transform: scale(1.08);
-  box-shadow: 0 2px 8px rgba(225, 29, 72, 0.5);
+  color: var(--accent-soft);
+  transform: scale(1.15);
 }
 .seat.occupied {
-  background: var(--occupied-bg);
-  border: 1px solid transparent;
-  color: var(--muted);
+  color: var(--occupied);
   cursor: not-allowed;
 }
 </style>
