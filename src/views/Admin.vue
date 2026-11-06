@@ -53,10 +53,8 @@
             <input v-model.number="form.Price" type="number" min="0" />
           </div>
           <div class="field">
-            <label>{{ t("max_row") }}</label>
-            <select v-model="form.MaxRow">
-              <option v-for="r in ROWS" :key="r" :value="r">{{ r }}</option>
-            </select>
+            <label>{{ t("total_rows") }}</label>
+            <input v-model.number="form.TotalRows" type="number" min="1" max="100" />
           </div>
           <div class="field">
             <label>{{ t("max_column") }}</label>
@@ -64,7 +62,7 @@
           </div>
         </div>
 
-        <!-- front rows (per-event expansion before row A) -->
+        <!-- front rows (per-event expansion: the first N rows, narrow) -->
         <div class="front-rows-box">
           <div class="front-rows-head">
             <span class="section-title">{{ t("front_rows") }}</span>
@@ -77,7 +75,7 @@
                 v-model.number="form.FrontCount"
                 type="number"
                 min="0"
-                :max="26"
+                :max="Number(form.TotalRows) || 100"
                 :disabled="!!editingId"
               />
             </div>
@@ -87,7 +85,7 @@
                 v-model.number="form.FrontWidth"
                 type="number"
                 min="1"
-                max="26"
+                max="52"
                 :disabled="!!editingId"
               />
             </div>
@@ -112,11 +110,11 @@
           </div>
           <div v-for="(z, i) in form.Zones" :key="i" class="zone-row">
             <select v-model="z.RowFrom">
-              <option v-for="r in ROWS" :key="r" :value="r">{{ r }}</option>
+              <option v-for="r in rowOptions" :key="r" :value="r">{{ r }}</option>
             </select>
             <span class="zone-dash">–</span>
             <select v-model="z.RowTo">
-              <option v-for="r in ROWS" :key="r" :value="r">{{ r }}</option>
+              <option v-for="r in rowOptions" :key="r" :value="r">{{ r }}</option>
             </select>
             <input v-model.number="z.Price" type="number" min="0" :placeholder="t('price')" />
             <button class="zone-remove" @click="removeZone(i)" aria-label="remove">
@@ -169,7 +167,7 @@
               <span class="er-meta">
                 {{ String(ev.fields.ShowDate || "").slice(0, 10) }} ·
                 {{ ev.fields.StartTime }} · {{ formatPriceRange(ev) }} ฿ ·
-                {{ t("seat_rows") }} {{ ev.fields.MaxRow }} × {{ ev.fields.MaxColumn }}
+                {{ t("seat_rows") }} {{ totalRowsOf(ev) }} × {{ ev.fields.MaxColumn }}
               </span>
             </div>
             <span class="pill" :class="ev.fields.IsActive ? 'on' : 'off'">
@@ -227,9 +225,9 @@ import {
 } from "../api/events.js";
 import { listBookingsForEvent } from "../api/bookings.js";
 import { formatPriceRange } from "../price.js";
+import { rowLabel, rowLabelToIndex, totalRowsOf } from "../layout.js";
 const { t } = useI18n();
 
-const ROWS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const unlocked = ref(isUnlocked());
 const pin = ref("");
 const pinError = ref(false);
@@ -244,7 +242,7 @@ const emptyForm = () => ({
   ShowDate: "",
   StartTime: "",
   Price: 0,
-  MaxRow: "P",
+  TotalRows: 16,
   MaxColumn: 26,
   IsActive: true,
   Zones: [],
@@ -252,35 +250,40 @@ const emptyForm = () => ({
   FrontWidth: 10,
 });
 const form = reactive(emptyForm());
+// Row labels for the current TotalRows (A, B, ... Z, AA, AB ...). Drives the
+// MaxRow + zone selectors. Recomputed when TotalRows changes.
+const rowOptions = computed(() => {
+  const n = Math.max(1, Math.min(100, Math.floor(Number(form.TotalRows) || 1)));
+  return Array.from({ length: n }, (_, i) => rowLabel(i + 1));
+});
 
 function addZone() {
-  form.Zones.push({ RowFrom: "A", RowTo: "A", Price: 0 });
+  const first = rowOptions.value[0] || "A";
+  form.Zones.push({ RowFrom: first, RowTo: first, Price: 0 });
 }
 function removeZone(i) {
   form.Zones.splice(i, 1);
 }
-// Front rows would push the map past A–P if frontCount + maxRowLetters > 16.
+// Front rows must fit inside TotalRows (the front rows ARE the first rows).
 const frontOverflow = computed(() => {
   const fc = Math.max(0, Math.floor(Number(form.FrontCount) || 0));
-  const maxIdx = ROWS.indexOf(String(form.MaxRow || "P").toUpperCase());
-  const maxLetters = maxIdx < 0 ? ROWS.length : maxIdx + 1;
-  return fc + maxLetters > ROWS.length;
+  const tr = Math.max(0, Math.floor(Number(form.TotalRows) || 0));
+  return tr > 0 && fc > tr;
 });
-// Rows (up to MaxRow) not covered by any zone -> they fall back to the base
-// Price. Warns the admin so an accidental gap doesn't silently mis-price seats.
+// Rows (0..totalRows-1) not covered by any zone -> they fall back to the base
+// Price. Index-based so rows beyond Z (AA, AB...) are handled.
 const uncoveredRows = computed(() => {
-  const maxIdx = ROWS.indexOf(String(form.MaxRow || "P").toUpperCase());
-  const end = maxIdx < 0 ? ROWS.length - 1 : maxIdx;
+  const n = Math.max(0, Math.floor(Number(form.TotalRows) || 0));
   const covered = new Set();
   for (const z of form.Zones) {
-    const a = ROWS.indexOf(String(z.RowFrom || "A").toUpperCase());
-    const b = ROWS.indexOf(String(z.RowTo || z.RowFrom || "A").toUpperCase());
+    const a = rowLabelToIndex(String(z.RowFrom || "A").toUpperCase()) - 1;
+    const b = rowLabelToIndex(String(z.RowTo || z.RowFrom || "A").toUpperCase()) - 1;
     if (a < 0) continue;
     const hi = b < a ? a : b;
-    for (let i = a; i <= hi; i++) covered.add(ROWS[i]);
+    for (let i = a; i <= hi; i++) covered.add(i);
   }
   const missing = [];
-  for (let i = 0; i <= end; i++) if (!covered.has(ROWS[i])) missing.push(ROWS[i]);
+  for (let i = 0; i < n; i++) if (!covered.has(i)) missing.push(rowLabel(i + 1));
   return missing.length ? missing.join(", ") : "";
 });
 
@@ -391,7 +394,9 @@ function edit(ev) {
   form.ShowDate = normalizeDate(ev.fields.ShowDate);
   form.StartTime = ev.fields.StartTime || "";
   form.Price = Number(ev.fields.Price) || 0;
-  form.MaxRow = ev.fields.MaxRow || "P";
+  // TotalRows is the size source; fall back to the legacy MaxRow letter for
+  // events created before TotalRows existed.
+  form.TotalRows = totalRowsOf(ev);
   form.MaxColumn = Number(ev.fields.MaxColumn) || 26;
   form.IsActive = Boolean(ev.fields.IsActive);
   form.Zones = parseZonesField(ev.fields.Zones);
@@ -405,13 +410,14 @@ async function save() {
   if (!form.Title) return;
   saving.value = true;
   try {
+    const total = Math.max(1, Math.min(100, Math.floor(Number(form.TotalRows) || 16)));
     const fields = {
       Title: form.Title,
       Venue: form.Venue,
       ShowDate: form.ShowDate,
       StartTime: form.StartTime,
       Price: Number(form.Price) || 0,
-      MaxRow: form.MaxRow,
+      TotalRows: total,
       MaxColumn: Number(form.MaxColumn) || 26,
       IsActive: Boolean(form.IsActive),
       Zones: form.Zones.length
@@ -420,12 +426,13 @@ async function save() {
           )
         : null,
     };
-    // Front rows are a per-event setting fixed at creation. On a NEW event we
-    // serialize them from the count/width inputs; on an edit we leave the
-    // stored FrontRows untouched (the inputs are disabled when editing).
+    // Front rows + total are a per-event setting fixed at creation. On a NEW
+    // event we serialize FrontRows from the count/width inputs; on an edit we
+    // leave the stored FrontRows/TotalRows untouched (inputs are disabled when
+    // editing).
     if (!editingId.value) {
-      const fc = Math.max(0, Math.min(16, Math.floor(Number(form.FrontCount) || 0)));
-      const fw = Math.max(1, Math.min(26, Math.floor(Number(form.FrontWidth) || 10)));
+      const fc = Math.max(0, Math.min(total, Math.floor(Number(form.FrontCount) || 0)));
+      const fw = Math.max(1, Math.min(52, Math.floor(Number(form.FrontWidth) || 10)));
       fields.FrontRows = fc ? JSON.stringify(Array(fc).fill(fw)) : null;
     }
     if (editingId.value) {

@@ -47,7 +47,7 @@
           </span>
         </div>
         <SeatGrid
-          :max-row="event.fields.MaxRow || 'P'"
+          :total-rows="totalRowsOf(event)"
           :max-column="Number(event.fields.MaxColumn) || 26"
           :front-rows="frontRowsOf(event)"
           :occupied="occupied"
@@ -92,8 +92,8 @@ import { useI18n } from "../i18n.js";
 import { getEvent } from "../api/events.js";
 import { occupiedSeats } from "../api/bookings.js";
 import { setSelection } from "../selection.js";
-import { priceGroups, rowColorMap, totalForSeats, priceForRow, formatPriceRange, zoneLabel } from "../price.js";
-import { frontRowsOf } from "../layout.js";
+import { priceGroups, rowColorMap, totalForSeats, priceForIndex, formatPriceRange, zoneLabel } from "../price.js";
+import { frontRowsOf, totalRowsOf, splitSeat, rowLabelToIndex } from "../layout.js";
 import SeatGrid from "../components/SeatGrid.vue";
 const { t } = useI18n();
 const route = useRoute();
@@ -115,7 +115,8 @@ function fmtDate(ev) {
   return String(ev.fields.ShowDate || "").slice(0, 10);
 }
 function priceForLabel(label) {
-  return `${priceForRow(event.value, String(label)[0])} ฿`;
+  const p = splitSeat(label);
+  return `${p ? priceForIndex(event.value, rowLabelToIndex(p.row) - 1) : 0} ฿`;
 }
 function toggleSeat(label) {
   const i = selected.value.indexOf(label);

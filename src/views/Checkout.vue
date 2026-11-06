@@ -97,7 +97,8 @@ import { useI18n } from "../i18n.js";
 import { getEvent } from "../api/events.js";
 import { createBooking } from "../api/bookings.js";
 import { getSelection, clearSelection } from "../selection.js";
-import { totalForSeats, priceForRow } from "../price.js";
+import { totalForSeats, priceForIndex } from "../price.js";
+import { splitSeat, rowLabelToIndex } from "../layout.js";
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
@@ -113,7 +114,8 @@ const card = reactive({ number: "", expiry: "", cvv: "" });
 const total = computed(() => totalForSeats(event.value, seats.value));
 
 function priceForLabel(label) {
-  return `${priceForRow(event.value, String(label)[0])} ฿`;
+  const p = splitSeat(label);
+  return `${p ? priceForIndex(event.value, rowLabelToIndex(p.row) - 1) : 0} ฿`;
 }
 
 function onCardNumber() {

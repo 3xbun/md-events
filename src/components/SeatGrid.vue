@@ -60,72 +60,74 @@
 <script setup>
 import { computed } from "vue";
 import { useI18n } from "../i18n.js";
+import { rowLabel } from "../layout.js";
 const { t } = useI18n();
 
 const props = defineProps({
-  maxRow: { type: String, default: "P" },
+  // Total row count in the hall (front + regular). Row labels derive from this:
+  // 1=A..26=Z, 27=AA, 28=AB ... Row 1 (A) is the front row, closest to stage.
+  totalRows: { type: Number, default: 16 },
   maxColumn: { type: Number, default: 26 },
-  // Front rows expanded before row A, widest-first. Each entry is that
-  // row's seat count (e.g. [10,10] = two 10-seat rows that become A,B).
+  // Front rows expanded before the regular grid (the first rows). Each entry is
+  // that row's seat count (e.g. [10,10] = two 10-seat rows that become A, B).
   // Per-event; [] for the classic single-width grid.
   frontRows: { type: Array, default: () => [] },
   occupied: { type: Array, default: () => [] },
   selected: { type: Array, default: () => [] },
-  // row-letter -> color map for price-group coloring of free seats
+  // row-label -> color map for price-group coloring of free seats
   rowColors: { type: Object, default: () => ({}) },
 });
 const emit = defineEmits(["select"]);
 
-const ROWS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-// Front rows (closest to stage) rendered FIRST, each with its own seat
-// count; the regular (back) grid — maxRow letters × maxColumn — follows.
-// Front rows take the first letters (A, B, …), so a [10,10] front + MaxRow=L
-// map is A(10) B(10) then C..N at 26 wide. Letters stay contiguous A→up,
-// which keeps letter-based zone pricing working unchanged.
+// Row model is INDEX-based: the hall has `totalRows` rows (0..totalRows-1).
+// Row label = rowLabel(index+1) (A..Z, AA, AB...). The first `frontCount`
+// rows are front rows (each with its own narrower seat count, from
+// props.frontRows); the rest are the regular grid at maxColumn width.
+// Front rows sit closest to the stage; regular rows render above them.
 const frontRows = computed(() =>
   Array.isArray(props.frontRows)
     ? props.frontRows
-        .map((n) => Math.max(1, Math.min(26, Math.floor(Number(n) || 0))))
+        .map((n) => Math.max(1, Math.min(52, Math.floor(Number(n) || 0))))
         .filter((n) => n > 0)
     : []
 );
 const frontCount = computed(() => frontRows.value.length);
-// Regular rows are the letters AFTER the front block, up to maxRow.
-const regularLetters = computed(() => {
-  const maxIdx = ROWS.indexOf(String(props.maxRow || "P").toUpperCase());
-  const end = maxIdx < 0 ? ROWS.length - 1 : maxIdx;
-  if (end < frontCount.value) return [];
-  return [...ROWS.slice(frontCount.value, end + 1)];
-});
-// All rendered rows, front order first (A at the front), then regular.
+const total = computed(() => Math.max(0, Math.floor(Number(props.totalRows) || 0)));
+// All rendered rows, index order (0 = front row "A", closest to stage).
 const rows = computed(() => {
+  const fr = frontRows.value;
+  const n = Math.max(0, Math.min(200, total.value)); // sane cap
   const r = [];
-  frontRows.value.forEach((w, i) => r.push({ letter: ROWS[i], width: w, front: true }));
-  regularLetters.value.forEach((L) =>
-    r.push({ letter: L, width: colNumbers.value.length, front: false })
-  );
+  for (let i = 0; i < n; i++) {
+    r.push({
+      idx: i,
+      letter: rowLabel(i + 1),
+      width: i < fr.length ? fr[i] : colNumbers.value,
+      front: i < fr.length,
+    });
+  }
   return r;
 });
-// Visual order top->bottom: regular rows reversed (so the back row sits on
-// top), a divider, then front rows (back-front -> front-front). Front rows
-// end up nearest the stage bar below the grid.
+// Visual order top->bottom: regular rows reversed (back row on top), a divider,
+// then front rows reversed (so the front-most "A" is at the very bottom,
+// nearest the stage bar).
 const displaySections = computed(() => {
   const front = rows.value.filter((r) => r.front);
   const reg = rows.value.filter((r) => !r.front);
   const secs = [];
-  if (reg.length) secs.push({ rows: [...reg].reverse(), break: false, width: colNumbers.value.length });
+  if (reg.length) secs.push({ rows: [...reg].reverse(), break: false, width: colNumbers.value });
   if (front.length) secs.push({ rows: [...front].reverse(), break: true, width: maxFrontWidth() });
   return secs;
 });
-// The widest regular column count (1..maxColumn).
+// The regular column count (1..maxColumn).
 const colNumbers = computed(() => {
-  const n = Math.max(1, Math.min(26, Math.floor(props.maxColumn || 26)));
-  return Array.from({ length: n }, (_, i) => i + 1);
+  const n = Math.max(1, Math.min(52, Math.floor(props.maxColumn || 26)));
+  return n;
 });
 // Widest front row (for a section's column template).
 function maxFrontWidth() {
   const f = frontRows.value;
-  return f.length ? Math.max(...f) : colNumbers.value.length;
+  return f.length ? Math.max(...f) : colNumbers.value;
 }
 // Center aisle: the column BEFORE which the gap is inserted for a given width.
 const aisleFor = (width) => Math.floor(width / 2) + 1;
