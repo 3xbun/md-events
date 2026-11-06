@@ -68,7 +68,7 @@ export const en = {
     "Extra seats added before row A (nearest the stage). Each front row gets its own letter, and existing rows shift back.",
   front_rows_count: "Front rows (count)",
   front_rows_width: "Seats per front row",
-  front_rows_overflow: "Too many rows — the map only has letters A–P.",
+  front_rows_overflow: "Too many rows — the map only has letters A–Z.",
   status_active: "Active",
   status_inactive: "Inactive",
   confirm_delete: "Delete this event?",

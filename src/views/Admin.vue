@@ -77,7 +77,7 @@
                 v-model.number="form.FrontCount"
                 type="number"
                 min="0"
-                :max="16"
+                :max="26"
                 :disabled="!!editingId"
               />
             </div>
@@ -229,7 +229,7 @@ import { listBookingsForEvent } from "../api/bookings.js";
 import { formatPriceRange } from "../price.js";
 const { t } = useI18n();
 
-const ROWS = "ABCDEFGHIJKLMNOP".split("");
+const ROWS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const unlocked = ref(isUnlocked());
 const pin = ref("");
 const pinError = ref(false);
@@ -263,8 +263,8 @@ function removeZone(i) {
 const frontOverflow = computed(() => {
   const fc = Math.max(0, Math.floor(Number(form.FrontCount) || 0));
   const maxIdx = ROWS.indexOf(String(form.MaxRow || "P").toUpperCase());
-  const maxLetters = maxIdx < 0 ? 16 : maxIdx + 1;
-  return fc + maxLetters > 16;
+  const maxLetters = maxIdx < 0 ? ROWS.length : maxIdx + 1;
+  return fc + maxLetters > ROWS.length;
 });
 // Rows (up to MaxRow) not covered by any zone -> they fall back to the base
 // Price. Warns the admin so an accidental gap doesn't silently mis-price seats.

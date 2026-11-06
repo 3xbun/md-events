@@ -4,7 +4,7 @@
 // Any number of zones is allowed; the admin defines them per event.
 // If an event has no (valid) zones, every seat falls back to `Price`.
 
-const ROWS = "ABCDEFGHIJKLMNOP";
+const ROWS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 export { ROWS };
 
 // Price-group palette (dark-theme friendly; avoids the pink/used-by-selected

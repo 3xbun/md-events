@@ -76,7 +76,7 @@ const props = defineProps({
 });
 const emit = defineEmits(["select"]);
 
-const ROWS = "ABCDEFGHIJKLMNOP";
+const ROWS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 // Front rows (closest to stage) rendered FIRST, each with its own seat
 // count; the regular (back) grid — maxRow letters × maxColumn — follows.
 // Front rows take the first letters (A, B, …), so a [10,10] front + MaxRow=L
