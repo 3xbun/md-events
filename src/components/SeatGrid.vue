@@ -15,10 +15,14 @@
       <span class="screen-label">{{ t("seat_map") }}</span>
     </div>
     <div class="grid-scroll">
-      <div
-        class="seat-grid"
-        :style="{ gridTemplateColumns: colsTemplate }"
-      >
+      <div class="seat-grid" :style="{ gridTemplateColumns: colsTemplate }">
+        <!-- column number header row -->
+        <div class="col-header"></div>
+        <template v-for="c in colNumbers" :key="'h' + c">
+          <div v-if="c === aisleBefore" class="aisle" aria-hidden="true"></div>
+          <div class="col-header">{{ c }}</div>
+        </template>
+        <!-- seat rows -->
         <template v-for="r in rowLetters" :key="r">
           <div class="row-label">{{ r }}</div>
           <template v-for="c in colNumbers" :key="r + c">
@@ -31,7 +35,7 @@
               :tabindex="seatEnabled(r, c) ? 0 : -1"
               @click="onSeat(r, c)"
             >
-              {{ c }}
+              <i class="fa-solid fa-seat" aria-hidden="true"></i>
             </div>
           </template>
         </template>
@@ -169,16 +173,29 @@ function onSeat(r, c) {
   /* empty spacer column in the middle of the map */
   height: 100%;
 }
+.col-header {
+  min-width: 0;
+  font-size: 0.6rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 14px;
+  font-weight: 600;
+}
 @media (max-width: 600px) {
   .seat-grid {
     gap: 2px;
   }
   .seat {
-    font-size: 0.5rem;
     border-radius: 4px;
   }
-  .row-label {
-    font-size: 0.6rem;
+  .seat i {
+    font-size: 0.5rem;
+  }
+  .row-label,
+  .col-header {
+    font-size: 0.45rem;
   }
 }
 .row-label {
@@ -193,12 +210,11 @@ function onSeat(r, c) {
 .seat {
   min-width: 0;
   overflow: hidden;
-  white-space: nowrap;
   aspect-ratio: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.7rem;
+  font-size: 0.9rem;
   font-weight: 600;
   border-radius: 5px;
   cursor: pointer;
