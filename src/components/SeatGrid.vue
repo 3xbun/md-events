@@ -17,7 +17,7 @@
     <div class="grid-scroll">
       <div
         class="seat-grid"
-        :style="{ gridTemplateColumns: `28px repeat(${colNumbers.length}, minmax(0, 1fr))` }"
+        :style="{ gridTemplateColumns: `28px repeat(${colNumbers.length}, 30px)` }"
       >
         <template v-for="r in rowLetters" :key="r">
           <div class="row-label">{{ r }}</div>
@@ -145,11 +145,12 @@ function onSeat(r, c) {
 .grid-scroll {
   overflow-x: auto;
   padding-bottom: 0.4rem;
+  -webkit-overflow-scrolling: touch;
 }
 .seat-grid {
   display: grid;
   gap: 4px;
-  min-width: 560px;
+  width: fit-content;
 }
 .row-label {
   font-size: 0.75rem;
