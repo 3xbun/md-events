@@ -15,6 +15,7 @@ export const th = {
   venue: "สถานที่",
   price_thb: "ราคา {count} บาท",
   seat_map: "ผังที่นั่ง",
+  stage: "เวที",
   seat_selected: "เลือกแล้ว",
   seat_occupied: "มีผู้จองแล้ว",
   seat_free: "ว่าง",

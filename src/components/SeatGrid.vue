@@ -11,9 +11,6 @@
         <i class="fa-solid fa-seat legend-occupied"></i> {{ t("seat_occupied") }}
       </span>
     </div>
-    <div class="screen">
-      <span class="screen-label">{{ t("seat_map") }}</span>
-    </div>
     <div class="grid-scroll">
       <div class="seat-grid" :style="{ gridTemplateColumns: colsTemplate }">
         <!-- column number header row -->
@@ -22,8 +19,8 @@
           <div v-if="c === aisleBefore" class="aisle" aria-hidden="true"></div>
           <div class="col-header">{{ String(c).padStart(2, "0") }}</div>
         </template>
-        <!-- seat rows -->
-        <template v-for="r in rowLetters" :key="r">
+        <!-- seat rows (reversed: P on top ... A at bottom, closest to stage) -->
+        <template v-for="r in displayRows" :key="r">
           <div class="row-label">{{ r }}</div>
           <template v-for="c in colNumbers" :key="r + c">
             <div v-if="c === aisleBefore" class="aisle" aria-hidden="true"></div>
@@ -40,6 +37,9 @@
           </template>
         </template>
       </div>
+    </div>
+    <div class="screen">
+      <span class="screen-label">{{ t("stage") }}</span>
     </div>
   </div>
 </template>
@@ -63,6 +63,9 @@ const rowLetters = computed(() => {
   const max = idx < 0 ? 16 : idx + 1;
   return ROWS.slice(0, max);
 });
+// Display order: highest row (P) first, A last — A sits at the bottom,
+// closest to the stage bar below the grid.
+const displayRows = computed(() => [...rowLetters.value].reverse());
 const colNumbers = computed(() => {
   const n = Math.max(1, Math.min(26, Math.floor(props.maxColumn || 26)));
   return Array.from({ length: n }, (_, i) => i + 1);

@@ -12,6 +12,7 @@ export const en = {
   venue: "Venue",
   price_thb: "{count} baht",
   seat_map: "Seat map",
+  stage: "Stage",
   seat_selected: "Selected",
   seat_occupied: "Taken",
   seat_free: "Free",
