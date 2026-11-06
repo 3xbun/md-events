@@ -17,22 +17,23 @@
     <div class="grid-scroll">
       <div
         class="seat-grid"
-        :style="{ gridTemplateColumns: `28px repeat(${colNumbers.length}, 30px)` }"
+        :style="{ gridTemplateColumns: colsTemplate }"
       >
         <template v-for="r in rowLetters" :key="r">
           <div class="row-label">{{ r }}</div>
-          <div
-            v-for="c in colNumbers"
-            :key="r + c"
-            class="seat"
-            :class="seatClass(r, c)"
-            role="button"
-            :aria-label="seatLabel(r, c)"
-            :tabindex="seatEnabled(r, c) ? 0 : -1"
-            @click="onSeat(r, c)"
-          >
-            {{ c }}
-          </div>
+          <template v-for="c in colNumbers" :key="r + c">
+            <div v-if="c === aisleBefore" class="aisle" aria-hidden="true"></div>
+            <div
+              class="seat"
+              :class="seatClass(r, c)"
+              role="button"
+              :aria-label="seatLabel(r, c)"
+              :tabindex="seatEnabled(r, c) ? 0 : -1"
+              @click="onSeat(r, c)"
+            >
+              {{ c }}
+            </div>
+          </template>
         </template>
       </div>
     </div>
@@ -61,6 +62,20 @@ const rowLetters = computed(() => {
 const colNumbers = computed(() => {
   const n = Math.max(1, Math.min(26, Math.floor(props.maxColumn || 26)));
   return Array.from({ length: n }, (_, i) => i + 1);
+});
+// Center aisle: the column BEFORE which the gap is inserted.
+// 26 cols -> before 13 (12 | aisle | 14); 10 cols -> before 6 (5 | aisle | 5).
+// Adapts automatically for any column count.
+const aisleBefore = computed(() => Math.floor(colNumbers.value.length / 2) + 1);
+// Flexible 1fr columns so the grid always fits its container (no h-scroll);
+// the aisle is a fixed narrow spacer column.
+const colsTemplate = computed(() => {
+  const parts = ["24px"];
+  for (const c of colNumbers.value) {
+    if (c === aisleBefore.value) parts.push("14px");
+    parts.push("1fr");
+  }
+  return parts.join(" ");
 });
 // Set of occupied seat labels for O(1) lookup.
 const occSet = computed(() => new Set(props.occupied.map((s) => String(s).toUpperCase())));
@@ -143,16 +158,31 @@ function onSeat(r, c) {
   display: block;
 }
 .grid-scroll {
-  overflow-x: auto;
   padding-bottom: 0.4rem;
-  -webkit-overflow-scrolling: touch;
 }
 .seat-grid {
   display: grid;
   gap: 4px;
-  width: fit-content;
+  min-width: 0;
+}
+.aisle {
+  /* empty spacer column in the middle of the map */
+  height: 100%;
+}
+@media (max-width: 600px) {
+  .seat-grid {
+    gap: 2px;
+  }
+  .seat {
+    font-size: 0.5rem;
+    border-radius: 4px;
+  }
+  .row-label {
+    font-size: 0.6rem;
+  }
 }
 .row-label {
+  min-width: 0;
   font-size: 0.75rem;
   color: var(--muted);
   display: flex;
@@ -161,6 +191,9 @@ function onSeat(r, c) {
   font-weight: 700;
 }
 .seat {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
   aspect-ratio: 1;
   display: flex;
   align-items: center;
