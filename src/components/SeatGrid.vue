@@ -21,12 +21,18 @@
         </template>
         <!-- seat rows (reversed: P on top ... A at bottom, closest to stage) -->
         <template v-for="r in displayRows" :key="r">
-          <div class="row-label">{{ r }}</div>
+          <div
+            class="row-label"
+            :style="{ color: rowColors[r] || undefined }"
+          >
+            {{ r }}
+          </div>
           <template v-for="c in colNumbers" :key="r + c">
             <div v-if="c === aisleBefore" class="aisle" aria-hidden="true"></div>
             <div
               class="seat"
               :class="seatClass(r, c)"
+              :style="seatStyle(r, c)"
               role="button"
               :aria-label="seatLabel(r, c)"
               :tabindex="seatEnabled(r, c) ? 0 : -1"
@@ -54,6 +60,8 @@ const props = defineProps({
   maxColumn: { type: Number, default: 26 },
   occupied: { type: Array, default: () => [] },
   selected: { type: Array, default: () => [] },
+  // row-letter -> color map for price-group coloring of free seats
+  rowColors: { type: Object, default: () => ({}) },
 });
 const emit = defineEmits(["select"]);
 
@@ -107,6 +115,12 @@ function seatClass(r, c) {
     occupied: seatState(r, c) === "occupied",
   };
 }
+// Free seats are tinted with their row's price-group color (color = price).
+// Selected/occupied keep their fixed state colors from CSS.
+function seatStyle(r, c) {
+  if (seatState(r, c) !== "free") return {};
+  return { color: props.rowColors[r] || "var(--free)" };
+}
 function onSeat(r, c) {
   if (!seatEnabled(r, c)) return;
   emit("select", seatLabel(r, c));
@@ -132,7 +146,8 @@ function onSeat(r, c) {
   color: var(--muted);
 }
 .legend-free {
-  color: var(--free);
+  color: var(--text);
+  opacity: 0.85;
 }
 .legend-selected {
   color: var(--accent-soft);
@@ -219,7 +234,7 @@ function onSeat(r, c) {
   }
 }
 .seat.free {
-  color: var(--free);
+  /* color comes from the row's price group (inline style); --free fallback */
 }
 .seat.free:hover {
   transform: scale(1.15);

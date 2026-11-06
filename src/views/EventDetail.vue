@@ -40,9 +40,10 @@
           <h2 class="section-title">{{ t("seat_map") }}</h2>
           <span class="hint">{{ t("select_seats_hint") }}</span>
         </div>
-        <div v-if="zones.length" class="zone-legend">
-          <span v-for="z in zones" :key="z.from" class="zone-chip">
-            {{ zoneLabel(z) }}
+        <div v-if="groups.length" class="zone-legend">
+          <span v-for="g in groups" :key="g.from" class="zone-chip">
+            <span class="zone-dot" :style="{ background: g.color }"></span>
+            {{ zoneLabel(g) }}
           </span>
         </div>
         <SeatGrid
@@ -50,6 +51,7 @@
           :max-column="Number(event.fields.MaxColumn) || 26"
           :occupied="occupied"
           :selected="selected"
+          :row-colors="rowColors"
           @select="toggleSeat"
         />
       </section>
@@ -89,7 +91,7 @@ import { useI18n } from "../i18n.js";
 import { getEvent } from "../api/events.js";
 import { occupiedSeats } from "../api/bookings.js";
 import { setSelection } from "../selection.js";
-import { parseZones, totalForSeats, priceForRow, formatPriceRange, zoneLabel } from "../price.js";
+import { priceGroups, rowColorMap, totalForSeats, priceForRow, formatPriceRange, zoneLabel } from "../price.js";
 import SeatGrid from "../components/SeatGrid.vue";
 const { t } = useI18n();
 const route = useRoute();
@@ -101,7 +103,10 @@ const occupied = ref([]);
 const selected = ref([]);
 const MAX_SELECT = 8;
 
-const zones = computed(() => parseZones(event.value));
+// Distinct price groups (consecutive same-price rows merged) drive the seat
+// map colors + legend. Color encodes price, so same-price rows share a hue.
+const groups = computed(() => priceGroups(event.value));
+const rowColors = computed(() => rowColorMap(event.value));
 const totalThb = computed(() => totalForSeats(event.value, selected.value));
 
 function fmtDate(ev) {
@@ -269,13 +274,20 @@ onMounted(load);
 .zone-chip {
   display: inline-flex;
   align-items: center;
+  gap: 0.4rem;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--gold);
-  background: rgba(212, 160, 23, 0.1);
-  border: 1px solid rgba(212, 160, 23, 0.35);
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 0.22rem 0.65rem;
+  padding: 0.22rem 0.65rem 0.22rem 0.4rem;
+}
+.zone-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  flex: none;
 }
 .cta {
   margin-top: 0.3rem;

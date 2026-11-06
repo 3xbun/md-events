@@ -5,6 +5,18 @@
 // If an event has no (valid) zones, every seat falls back to `Price`.
 
 const ROWS = "ABCDEFGHIJKLMNOP";
+export { ROWS };
+
+// Price-group palette (dark-theme friendly; avoids the pink/used-by-selected
+// and grey/occupied hues). Assigned in row order, front row first.
+export const ZONE_PALETTE = [
+  "#4fc3f7", // light blue
+  "#81c784", // green
+  "#ffd54f", // amber
+  "#ba68c8", // purple
+  "#ff8a65", // orange
+  "#4dd0e1", // cyan
+];
 
 /** Parse the Zones field into [{from,to,fi,ti,price}] or []. */
 export function parseZones(event) {
@@ -82,4 +94,38 @@ export function formatPriceRange(event) {
 export function zoneLabel(z) {
   const rows = z.from === z.to ? z.from : `${z.from}\u2013${z.to}`;
   return `${rows} ${z.price} \u0e3f`;
+}
+
+/**
+ * Distinct price groups across the rows that exist (A..MaxRow), in row order.
+ * Consecutive same-price rows are MERGED — so a 500 zone sitting next to a
+ * 500 base price becomes one group. Each group gets a palette color:
+ * [{fi, ti, from, to, price, color}].
+ */
+export function priceGroups(event) {
+  const maxRow = String(event?.fields?.MaxRow || "P").toUpperCase();
+  const maxIdx = ROWS.indexOf(maxRow);
+  const end = maxIdx < 0 ? ROWS.length - 1 : maxIdx;
+  const groups = [];
+  for (let i = 0; i <= end; i++) {
+    const price = priceForRow(event, ROWS[i]);
+    const last = groups[groups.length - 1];
+    if (last && last.price === price) {
+      last.ti = i;
+      last.to = ROWS[i];
+    } else {
+      groups.push({ fi: i, ti: i, from: ROWS[i], to: ROWS[i], price });
+    }
+  }
+  groups.forEach((g, idx) => (g.color = ZONE_PALETTE[idx % ZONE_PALETTE.length]));
+  return groups;
+}
+
+/** Row-letter -> color map for the seat map (from priceGroups). */
+export function rowColorMap(event) {
+  const map = {};
+  for (const g of priceGroups(event)) {
+    for (let i = g.fi; i <= g.ti; i++) map[ROWS[i]] = g.color;
+  }
+  return map;
 }
