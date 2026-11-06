@@ -49,6 +49,7 @@
         <SeatGrid
           :max-row="event.fields.MaxRow || 'P'"
           :max-column="Number(event.fields.MaxColumn) || 26"
+          :front-rows="frontRowsOf(event)"
           :occupied="occupied"
           :selected="selected"
           :row-colors="rowColors"
@@ -92,6 +93,7 @@ import { getEvent } from "../api/events.js";
 import { occupiedSeats } from "../api/bookings.js";
 import { setSelection } from "../selection.js";
 import { priceGroups, rowColorMap, totalForSeats, priceForRow, formatPriceRange, zoneLabel } from "../price.js";
+import { frontRowsOf } from "../layout.js";
 import SeatGrid from "../components/SeatGrid.vue";
 const { t } = useI18n();
 const route = useRoute();

@@ -63,6 +63,12 @@ export const en = {
   event_name: "Event name",
   max_row: "Max row (A–P)",
   max_column: "Max column (1–26)",
+  front_rows: "Front rows",
+  front_rows_hint:
+    "Extra seats added before row A (nearest the stage). Each front row gets its own letter, and existing rows shift back.",
+  front_rows_count: "Front rows (count)",
+  front_rows_width: "Seats per front row",
+  front_rows_overflow: "Too many rows — the map only has letters A–P.",
   status_active: "Active",
   status_inactive: "Inactive",
   confirm_delete: "Delete this event?",

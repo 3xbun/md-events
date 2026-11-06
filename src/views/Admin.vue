@@ -64,6 +64,40 @@
           </div>
         </div>
 
+        <!-- front rows (per-event expansion before row A) -->
+        <div class="front-rows-box">
+          <div class="front-rows-head">
+            <span class="section-title">{{ t("front_rows") }}</span>
+          </div>
+          <p class="hint">{{ t("front_rows_hint") }}</p>
+          <div class="grid-3">
+            <div class="field">
+              <label>{{ t("front_rows_count") }}</label>
+              <input
+                v-model.number="form.FrontCount"
+                type="number"
+                min="0"
+                :max="16"
+                :disabled="!!editingId"
+              />
+            </div>
+            <div class="field">
+              <label>{{ t("front_rows_width") }}</label>
+              <input
+                v-model.number="form.FrontWidth"
+                type="number"
+                min="1"
+                max="26"
+                :disabled="!!editingId"
+              />
+            </div>
+          </div>
+          <div v-if="!editingId && frontOverflow" class="zones-warn">
+            <i class="fa-duotone fa-solid fa-triangle-exclamation"></i>
+            {{ t("front_rows_overflow") }}
+          </div>
+        </div>
+
         <!-- price zones -->
         <div class="zones-box">
           <div class="zones-head">
@@ -214,6 +248,8 @@ const emptyForm = () => ({
   MaxColumn: 26,
   IsActive: true,
   Zones: [],
+  FrontCount: 0,
+  FrontWidth: 10,
 });
 const form = reactive(emptyForm());
 
@@ -223,6 +259,13 @@ function addZone() {
 function removeZone(i) {
   form.Zones.splice(i, 1);
 }
+// Front rows would push the map past A–P if frontCount + maxRowLetters > 16.
+const frontOverflow = computed(() => {
+  const fc = Math.max(0, Math.floor(Number(form.FrontCount) || 0));
+  const maxIdx = ROWS.indexOf(String(form.MaxRow || "P").toUpperCase());
+  const maxLetters = maxIdx < 0 ? 16 : maxIdx + 1;
+  return fc + maxLetters > 16;
+});
 // Rows (up to MaxRow) not covered by any zone -> they fall back to the base
 // Price. Warns the admin so an accidental gap doesn't silently mis-price seats.
 const uncoveredRows = computed(() => {
@@ -305,9 +348,9 @@ function resetForm() {
 function parseZonesField(raw) {
   if (!raw) return [];
   let z = raw;
-  if (typeof z === "string") {
+  if (typeof raw === "string") {
     try {
-      z = JSON.parse(z);
+      z = JSON.parse(raw);
     } catch {
       return [];
     }
@@ -322,6 +365,25 @@ function parseZonesField(raw) {
     }));
 }
 
+// Parse the FrontRows field (JSON array of per-row seat counts) into a
+// {count, width} pair for the two admin inputs.
+function parseFrontRowsField(raw) {
+  let arr = raw;
+  if (typeof raw === "string") {
+    try {
+      arr = JSON.parse(raw);
+    } catch {
+      arr = null;
+    }
+  }
+  if (!Array.isArray(arr) || !arr.length) return { count: 0, width: 10 };
+  const nums = arr
+    .map((n) => Math.max(1, Math.floor(Number(n) || 0)))
+    .filter((n) => n > 0);
+  if (!nums.length) return { count: 0, width: 10 };
+  return { count: nums.length, width: Math.max(...nums) };
+}
+
 function edit(ev) {
   editingId.value = ev.id;
   form.Title = ev.fields.Title || "";
@@ -333,6 +395,9 @@ function edit(ev) {
   form.MaxColumn = Number(ev.fields.MaxColumn) || 26;
   form.IsActive = Boolean(ev.fields.IsActive);
   form.Zones = parseZonesField(ev.fields.Zones);
+  const fr = parseFrontRowsField(ev.fields.FrontRows);
+  form.FrontCount = fr.count;
+  form.FrontWidth = fr.width;
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -355,6 +420,14 @@ async function save() {
           )
         : null,
     };
+    // Front rows are a per-event setting fixed at creation. On a NEW event we
+    // serialize them from the count/width inputs; on an edit we leave the
+    // stored FrontRows untouched (the inputs are disabled when editing).
+    if (!editingId.value) {
+      const fc = Math.max(0, Math.min(16, Math.floor(Number(form.FrontCount) || 0)));
+      const fw = Math.max(1, Math.min(26, Math.floor(Number(form.FrontWidth) || 10)));
+      fields.FrontRows = fc ? JSON.stringify(Array(fc).fill(fw)) : null;
+    }
     if (editingId.value) {
       await updateEvent(editingId.value, fields);
     } else {
@@ -561,6 +634,18 @@ onMounted(async () => {
   flex-direction: column;
   gap: 0.6rem;
   background: var(--surface-2);
+}
+.front-rows-box {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: var(--surface-2);
+}
+.front-rows-box .grid-3 {
+  grid-template-columns: 1fr 1fr;
 }
 .zones-head {
   display: flex;
