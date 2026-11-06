@@ -17,7 +17,7 @@
     <div class="grid-scroll">
       <div
         class="seat-grid"
-        :style="{ gridTemplateColumns: `28px repeat(${maxCol}, minmax(0, 1fr))` }"
+        :style="{ gridTemplateColumns: `28px repeat(${colNumbers.length}, minmax(0, 1fr))` }"
       >
         <template v-for="r in rowLetters" :key="r">
           <div class="row-label">{{ r }}</div>
