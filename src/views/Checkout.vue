@@ -19,7 +19,9 @@
           <span class="num">{{ seats.length }}</span>
         </div>
         <div class="selected-chips">
-          <span v-for="s in seats" :key="s" class="chip-seat">{{ s }}</span>
+          <span v-for="s in seats" :key="s" class="chip-seat">
+            {{ s }}<em>{{ priceForLabel(s) }}</em>
+          </span>
         </div>
         <div class="os-row total">
           <span class="muted">{{ t("total_thb", { count: total }) }}</span>
@@ -95,20 +97,24 @@ import { useI18n } from "../i18n.js";
 import { getEvent } from "../api/events.js";
 import { createBooking } from "../api/bookings.js";
 import { getSelection, clearSelection } from "../selection.js";
+import { totalForSeats, priceForRow } from "../price.js";
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 
 const event = ref(null);
 const seats = ref([]);
-const price = ref(0);
 const paying = ref(false);
 const error = ref("");
 
 const form = reactive({ name: "", email: "", phone: "" });
 const card = reactive({ number: "", expiry: "", cvv: "" });
 
-const total = computed(() => seats.value.length * price.value);
+const total = computed(() => totalForSeats(event.value, seats.value));
+
+function priceForLabel(label) {
+  return `${priceForRow(event.value, String(label)[0])} ฿`;
+}
 
 function onCardNumber() {
   card.number = card.number
@@ -166,9 +172,11 @@ async function pay() {
 onMounted(async () => {
   const sel = getSelection();
   seats.value = sel.seats || [];
-  price.value = sel.price || 0;
+  event.value = sel.event || null;
   try {
-    event.value = await getEvent(route.params.id);
+    // Prefer the fresh fetch (authoritative zones); fall back to the
+    // in-memory event so a failed fetch doesn't blank the checkout.
+    event.value = (await getEvent(route.params.id)) || sel.event;
   } catch (e) {
     console.error(e);
   }
@@ -238,6 +246,13 @@ onMounted(async () => {
   padding: 0.2rem 0.55rem;
   font-size: 0.8rem;
   font-weight: 700;
+}
+.chip-seat em {
+  font-style: normal;
+  font-weight: 500;
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-left: 0.35rem;
 }
 .form-section {
   display: flex;

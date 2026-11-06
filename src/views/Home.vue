@@ -42,7 +42,7 @@
                 {{ ev.fields.StartTime }}
               </span>
               <span class="chip price">
-                {{ t("price_thb", { count: Number(ev.fields.Price) || 0 }) }}
+                {{ t("price_from", { count: formatPriceRange(ev) }) }}
               </span>
             </div>
           </div>
@@ -60,6 +60,7 @@
 import { ref, onMounted } from "vue";
 import { useI18n } from "../i18n.js";
 import { listActiveEvents } from "../api/events.js";
+import { formatPriceRange } from "../price.js";
 const { t } = useI18n();
 
 const events = ref([]);

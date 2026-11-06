@@ -27,7 +27,7 @@
             {{ event.fields.Venue }}
           </span>
           <span class="chip price">
-            {{ t("price_thb", { count: Number(event.fields.Price) || 0 }) }}
+            {{ t("price_from", { count: formatPriceRange(event) }) }}
           </span>
         </div>
         <p v-if="event.fields.Description" class="ev-desc">
@@ -39,6 +39,11 @@
         <div class="map-head">
           <h2 class="section-title">{{ t("seat_map") }}</h2>
           <span class="hint">{{ t("select_seats_hint") }}</span>
+        </div>
+        <div v-if="zones.length" class="zone-legend">
+          <span v-for="z in zones" :key="z.from" class="zone-chip">
+            {{ zoneLabel(z) }}
+          </span>
         </div>
         <SeatGrid
           :max-row="event.fields.MaxRow || 'P'"
@@ -59,7 +64,9 @@
           <span class="num price-num">{{ totalThb }} ฿</span>
         </div>
         <div class="selected-chips">
-          <span v-for="s in selected" :key="s" class="chip-seat">{{ s }}</span>
+          <span v-for="s in selected" :key="s" class="chip-seat">
+            {{ s }}<em>{{ priceForLabel(s) }}</em>
+          </span>
         </div>
         <router-link
           :to="`/checkout/${event.id}`"
@@ -82,6 +89,7 @@ import { useI18n } from "../i18n.js";
 import { getEvent } from "../api/events.js";
 import { occupiedSeats } from "../api/bookings.js";
 import { setSelection } from "../selection.js";
+import { parseZones, totalForSeats, priceForRow, formatPriceRange, zoneLabel } from "../price.js";
 import SeatGrid from "../components/SeatGrid.vue";
 const { t } = useI18n();
 const route = useRoute();
@@ -93,12 +101,14 @@ const occupied = ref([]);
 const selected = ref([]);
 const MAX_SELECT = 8;
 
-const totalThb = computed(() =>
-  selected.value.length * (Number(event.value?.fields?.Price) || 0)
-);
+const zones = computed(() => parseZones(event.value));
+const totalThb = computed(() => totalForSeats(event.value, selected.value));
 
 function fmtDate(ev) {
   return String(ev.fields.ShowDate || "").slice(0, 10);
+}
+function priceForLabel(label) {
+  return `${priceForRow(event.value, String(label)[0])} ฿`;
 }
 function toggleSeat(label) {
   const i = selected.value.indexOf(label);
@@ -114,11 +124,7 @@ function goBack() {
 }
 function startCheckout() {
   if (!event.value || !selected.value.length) return;
-  setSelection(
-    event.value.id,
-    selected.value,
-    Number(event.value.fields.Price) || 0
-  );
+  setSelection(event.value.id, selected.value, event.value);
   router.push(`/checkout/${event.value.id}`);
 }
 
@@ -246,6 +252,30 @@ onMounted(load);
   padding: 0.2rem 0.55rem;
   font-size: 0.8rem;
   font-weight: 700;
+}
+.chip-seat em {
+  font-style: normal;
+  font-weight: 500;
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-left: 0.35rem;
+}
+.zone-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 0.9rem;
+}
+.zone-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--gold);
+  background: rgba(212, 160, 23, 0.1);
+  border: 1px solid rgba(212, 160, 23, 0.35);
+  border-radius: 999px;
+  padding: 0.22rem 0.65rem;
 }
 .cta {
   margin-top: 0.3rem;

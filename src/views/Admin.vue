@@ -49,7 +49,7 @@
         </div>
         <div class="grid-3">
           <div class="field">
-            <label>{{ t("price_thb", { count: "" }) }}</label>
+            <label>{{ t("base_price") }}</label>
             <input v-model.number="form.Price" type="number" min="0" />
           </div>
           <div class="field">
@@ -61,6 +61,37 @@
           <div class="field">
             <label>{{ t("max_column") }}</label>
             <input v-model.number="form.MaxColumn" type="number" min="1" max="26" />
+          </div>
+        </div>
+
+        <!-- price zones -->
+        <div class="zones-box">
+          <div class="zones-head">
+            <span class="section-title">{{ t("zones") }}</span>
+            <button class="btn btn-sm" @click="addZone">
+              <i class="fa-duotone fa-solid fa-plus"></i>
+              {{ t("zone_add") }}
+            </button>
+          </div>
+          <div v-if="!form.Zones.length" class="zones-empty">
+            {{ t("zones_empty") }}
+          </div>
+          <div v-for="(z, i) in form.Zones" :key="i" class="zone-row">
+            <select v-model="z.RowFrom">
+              <option v-for="r in ROWS" :key="r" :value="r">{{ r }}</option>
+            </select>
+            <span class="zone-dash">–</span>
+            <select v-model="z.RowTo">
+              <option v-for="r in ROWS" :key="r" :value="r">{{ r }}</option>
+            </select>
+            <input v-model.number="z.Price" type="number" min="0" :placeholder="t('price')" />
+            <button class="zone-remove" @click="removeZone(i)" aria-label="remove">
+              <i class="fa-duotone fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <div v-if="uncoveredRows" class="zones-warn">
+            <i class="fa-duotone fa-solid fa-triangle-exclamation"></i>
+            {{ t("zones_uncovered", { rows: uncoveredRows }) }}
           </div>
         </div>
         <div class="field">
@@ -103,7 +134,7 @@
               <span class="er-name">{{ ev.fields.Title }}</span>
               <span class="er-meta">
                 {{ String(ev.fields.ShowDate || "").slice(0, 10) }} ·
-                {{ ev.fields.StartTime }} · {{ Number(ev.fields.Price) || 0 }} ฿ ·
+                {{ ev.fields.StartTime }} · {{ formatPriceRange(ev) }} ฿ ·
                 {{ t("seat_rows") }} {{ ev.fields.MaxRow }} × {{ ev.fields.MaxColumn }}
               </span>
             </div>
@@ -161,6 +192,7 @@ import {
   deleteEvent,
 } from "../api/events.js";
 import { listBookingsForEvent } from "../api/bookings.js";
+import { formatPriceRange } from "../price.js";
 const { t } = useI18n();
 
 const ROWS = "ABCDEFGHIJKLMNOP".split("");
@@ -181,8 +213,33 @@ const emptyForm = () => ({
   MaxRow: "P",
   MaxColumn: 26,
   IsActive: true,
+  Zones: [],
 });
 const form = reactive(emptyForm());
+
+function addZone() {
+  form.Zones.push({ RowFrom: "A", RowTo: "A", Price: 0 });
+}
+function removeZone(i) {
+  form.Zones.splice(i, 1);
+}
+// Rows (up to MaxRow) not covered by any zone -> they fall back to the base
+// Price. Warns the admin so an accidental gap doesn't silently mis-price seats.
+const uncoveredRows = computed(() => {
+  const maxIdx = ROWS.indexOf(String(form.MaxRow || "P").toUpperCase());
+  const end = maxIdx < 0 ? ROWS.length - 1 : maxIdx;
+  const covered = new Set();
+  for (const z of form.Zones) {
+    const a = ROWS.indexOf(String(z.RowFrom || "A").toUpperCase());
+    const b = ROWS.indexOf(String(z.RowTo || z.RowFrom || "A").toUpperCase());
+    if (a < 0) continue;
+    const hi = b < a ? a : b;
+    for (let i = a; i <= hi; i++) covered.add(ROWS[i]);
+  }
+  const missing = [];
+  for (let i = 0; i <= end; i++) if (!covered.has(ROWS[i])) missing.push(ROWS[i]);
+  return missing.length ? missing.join(", ") : "";
+});
 
 const statusKeyOf = (s) => {
   const k = String(s || "reserved").toLowerCase();
@@ -245,6 +302,26 @@ function resetForm() {
   Object.assign(form, emptyForm());
 }
 
+function parseZonesField(raw) {
+  if (!raw) return [];
+  let z = raw;
+  if (typeof z === "string") {
+    try {
+      z = JSON.parse(z);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(z)) return [];
+  return z
+    .filter((e) => e && e.RowFrom && e.Price)
+    .map((e) => ({
+      RowFrom: String(e.RowFrom).toUpperCase(),
+      RowTo: String(e.RowTo ?? e.RowFrom).toUpperCase(),
+      Price: Number(e.Price) || 0,
+    }));
+}
+
 function edit(ev) {
   editingId.value = ev.id;
   form.Title = ev.fields.Title || "";
@@ -255,6 +332,7 @@ function edit(ev) {
   form.MaxRow = ev.fields.MaxRow || "P";
   form.MaxColumn = Number(ev.fields.MaxColumn) || 26;
   form.IsActive = Boolean(ev.fields.IsActive);
+  form.Zones = parseZonesField(ev.fields.Zones);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -271,6 +349,11 @@ async function save() {
       MaxRow: form.MaxRow,
       MaxColumn: Number(form.MaxColumn) || 26,
       IsActive: Boolean(form.IsActive),
+      Zones: form.Zones.length
+        ? JSON.stringify(
+            form.Zones.filter((z) => z.RowFrom && z.Price > 0)
+          )
+        : null,
     };
     if (editingId.value) {
       await updateEvent(editingId.value, fields);
@@ -469,6 +552,82 @@ onMounted(async () => {
 .error {
   color: var(--accent-soft);
   font-size: 0.85rem;
+}
+.zones-box {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  background: var(--surface-2);
+}
+.zones-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.zones-head .section-title {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.zones-empty {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.zone-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.zone-row select {
+  flex: none;
+  width: 56px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.45rem 0.3rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  text-align: center;
+}
+.zone-row input {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.45rem 0.6rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+.zone-dash {
+  color: var(--muted);
+}
+.zone-remove {
+  flex: none;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0.3rem;
+}
+.zone-remove:hover {
+  color: var(--accent-soft);
+}
+.zones-warn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--gold);
+  font-size: 0.78rem;
+  background: rgba(212, 160, 23, 0.1);
+  border: 1px solid rgba(212, 160, 23, 0.3);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
 }
 .state {
   text-align: center;
