@@ -199,13 +199,33 @@
             <div class="br-info">
               <span class="br-name">{{ b.fields.CustomerName }}</span>
               <span class="br-meta">
-                {{ seatsOf(b) }} · {{ b.fields.SeatCount }} ·
+                {{ b.fields._event }} · {{ seatsOf(b) }} ·
                 {{ Number(b.fields.Total) || 0 }} ฿
               </span>
             </div>
             <span class="pill" :class="statusPill(b.fields.Status)">
               {{ t(statusKeyOf(b.fields.Status)) }}
             </span>
+            <div class="br-actions">
+              <button
+                v-if="isPending(b.fields.Status)"
+                class="btn btn-sm ok"
+                :disabled="busyId === b.id"
+                @click="confirmBooking(b)"
+              >
+                <i class="fa-duotone fa-solid fa-check"></i>
+                {{ t("confirm_payment") }}
+              </button>
+              <button
+                v-if="isPending(b.fields.Status)"
+                class="btn btn-sm danger"
+                :disabled="busyId === b.id"
+                @click="cancelBooking(b)"
+              >
+                <i class="fa-duotone fa-solid fa-xmark"></i>
+                {{ t("cancel_booking") }}
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -223,7 +243,7 @@ import {
   updateEvent,
   deleteEvent,
 } from "../api/events.js";
-import { listBookingsForEvent } from "../api/bookings.js";
+import { listBookingsForEvent, setBookingStatus } from "../api/bookings.js";
 import { formatPriceRange } from "../price.js";
 import { rowLabel, rowLabelToIndex, totalRowsOf } from "../layout.js";
 const { t } = useI18n();
@@ -235,6 +255,7 @@ const events = ref([]);
 const bookings = ref([]);
 const editingId = ref(null);
 const saving = ref(false);
+const busyId = ref(null);
 
 const emptyForm = () => ({
   Title: "",
@@ -287,14 +308,46 @@ const uncoveredRows = computed(() => {
   return missing.length ? missing.join(", ") : "";
 });
 
+// pending/confirmed are the real flow; reserved/paid are legacy (pre-bank
+// transfer). confirmed + paid read as confirmed; reserved reads as pending.
 const statusKeyOf = (s) => {
-  const k = String(s || "reserved").toLowerCase();
-  return { paid: "paid", reserved: "reserved", cancelled: "cancelled" }[k] || "reserved";
+  const k = String(s || "").toLowerCase();
+  if (k === "confirmed" || k === "paid") return "confirmed";
+  if (k === "cancelled") return "cancelled";
+  return "pending"; // pending + legacy reserved
 };
 const statusPill = (s) => {
   const k = String(s || "").toLowerCase();
-  return { paid: "on", reserved: "mid", cancelled: "off" }[k] || "mid";
+  if (k === "confirmed" || k === "paid") return "on";
+  if (k === "cancelled") return "off";
+  return "mid"; // pending + legacy reserved
 };
+const isPending = (s) => String(s || "").toLowerCase() === "pending";
+
+async function confirmBooking(b) {
+  busyId.value = b.id;
+  try {
+    await setBookingStatus(b.id, "confirmed");
+    b.fields.Status = "confirmed";
+  } catch (e) {
+    console.error(e);
+  } finally {
+    busyId.value = null;
+  }
+}
+
+async function cancelBooking(b) {
+  if (!confirm(t("confirm_cancel_booking"))) return;
+  busyId.value = b.id;
+  try {
+    await setBookingStatus(b.id, "cancelled");
+    b.fields.Status = "cancelled";
+  } catch (e) {
+    console.error(e);
+  } finally {
+    busyId.value = null;
+  }
+}
 function seatsOf(b) {
   let arr = b.fields.Seats;
   if (typeof arr === "string") {
@@ -589,6 +642,17 @@ onMounted(async () => {
 .er-actions {
   display: flex;
   gap: 0.4rem;
+}
+.br-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+.ok {
+  color: var(--free);
+  border-color: rgba(46, 160, 67, 0.4);
+}
+.ok:hover {
+  background: var(--free-bg);
 }
 .danger {
   color: var(--accent-soft);

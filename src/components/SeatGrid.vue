@@ -8,7 +8,10 @@
         <i class="fa-solid fa-seat legend-selected"></i> {{ t("seat_selected") }}
       </span>
       <span class="legend-item">
-        <i class="fa-solid fa-seat legend-occupied"></i> {{ t("seat_occupied") }}
+        <i class="fa-solid fa-seat legend-pending"></i> {{ t("seat_pending") }}
+      </span>
+      <span class="legend-item">
+        <i class="fa-solid fa-seat legend-confirmed"></i> {{ t("seat_confirmed") }}
       </span>
     </div>
     <div class="grid-scroll">
@@ -74,6 +77,9 @@ const props = defineProps({
   frontRows: { type: Array, default: () => [] },
   occupied: { type: Array, default: () => [] },
   selected: { type: Array, default: () => [] },
+  // seat label -> "pending" | "confirmed" for seats already reserved by a
+  // booking (payment awaiting admin confirmation, or confirmed).
+  seatStates: { type: Object, default: () => ({}) },
   // row-label -> color map for price-group coloring of free seats
   rowColors: { type: Object, default: () => ({}) },
 });
@@ -153,31 +159,46 @@ const sections = computed(() =>
     tpl: colsTemplate(s.width),
   }))
 );
-// Set of occupied seat labels for O(1) lookup.
+// Set of occupied seat labels for O(1) lookup. `occSet` is the authoritative
+// "taken" set (any non-cancelled booking). `stateMap` distinguishes pending vs
+// confirmed for coloring; seats in occSet but not in stateMap are legacy/other
+// taken seats and render as the generic grey "confirmed/occupied" style.
 const occSet = computed(() => new Set(props.occupied.map((s) => String(s).toUpperCase())));
 const selSet = computed(() => new Set(props.selected.map((s) => String(s).toUpperCase())));
+const stateMap = computed(() => {
+  const m = {};
+  for (const [k, v] of Object.entries(props.seatStates || {})) {
+    m[String(k).toUpperCase()] = String(v).toLowerCase();
+  }
+  return m;
+});
 
 function seatLabel(r, c) {
   return `${r}${c}`;
 }
 function seatState(r, c) {
   const label = seatLabel(r, c);
-  if (occSet.value.has(label)) return "occupied";
   if (selSet.value.has(label)) return "selected";
+  const st = stateMap.value[label];
+  if (st === "pending" || st === "confirmed") return st;
+  if (occSet.value.has(label)) return "confirmed"; // taken (legacy/other)
   return "free";
 }
 function seatEnabled(r, c) {
-  return seatState(r, c) !== "occupied";
+  return seatState(r, c) === "free";
 }
 function seatClass(r, c) {
+  const st = seatState(r, c);
   return {
-    free: seatState(r, c) === "free",
-    selected: seatState(r, c) === "selected",
-    occupied: seatState(r, c) === "occupied",
+    free: st === "free",
+    selected: st === "selected",
+    pending: st === "pending",
+    confirmed: st === "confirmed",
+    occupied: st === "confirmed",
   };
 }
 // Free seats are tinted with their row's price-group color (color = price).
-// Selected/occupied keep their fixed state colors from CSS.
+// Pending/selected/confirmed keep their fixed state colors from CSS.
 function seatStyle(r, c) {
   if (seatState(r, c) !== "free") return {};
   return { color: props.rowColors[r] || "var(--free)" };
@@ -212,6 +233,12 @@ function onSeat(r, c) {
 }
 .legend-selected {
   color: var(--accent-soft);
+}
+.legend-pending {
+  color: var(--pending);
+}
+.legend-confirmed {
+  color: var(--confirmed);
 }
 .legend-occupied {
   color: var(--occupied);
@@ -319,8 +346,13 @@ function onSeat(r, c) {
   color: var(--accent-soft);
   transform: scale(1.15);
 }
+.seat.pending {
+  color: var(--pending);
+  cursor: not-allowed;
+}
+.seat.confirmed,
 .seat.occupied {
-  color: var(--occupied);
+  color: var(--confirmed);
   cursor: not-allowed;
 }
 </style>

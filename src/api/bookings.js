@@ -9,9 +9,12 @@ import {
 
 const url = (p) => `${NOCODB_BASE}/v3/data/${BASE_ID}/${BOOKINGS_TABLE}/records`;
 
+const PENDING = "pending"; // customer confirmed the bank transfer, awaiting admin
+const CONFIRMED = "confirmed"; // admin verified the payment
+const CANCELLED = "cancelled";
+// Legacy (pre-bank-transfer) statuses, still readable on old records:
 const RESERVED = "reserved";
 const PAID = "paid";
-const CANCELLED = "cancelled";
 
 /**
  * Bookings for one event. A seat is occupied by any non-cancelled booking.
@@ -33,6 +36,8 @@ export async function listBookingsForEvent(eventId) {
 
 /**
  * Seats taken (non-cancelled) for an event → array of seat labels ["A1","B2"].
+ * Pending bookings count as taken: the customer has claimed them while the
+ * admin verifies the payment.
  */
 export async function occupiedSeats(eventId) {
   const recs = await listBookingsForEvent(eventId);
@@ -54,8 +59,33 @@ export async function occupiedSeats(eventId) {
 }
 
 /**
+ * Seat → status map for an event: { "A1": "pending" | "confirmed", ... }.
+ * Only non-cancelled bookings; used to tint pending/confirmed seats on the
+ * seat map.
+ */
+export async function seatStates(eventId) {
+  const recs = await listBookingsForEvent(eventId);
+  const map = {};
+  for (const r of recs) {
+    const st = String(r.fields?.Status || "").toLowerCase();
+    if (st === CANCELLED || !(st === PENDING || st === CONFIRMED)) continue;
+    let arr = r.fields?.Seats;
+    if (typeof arr === "string") {
+      try {
+        arr = JSON.parse(arr);
+      } catch {
+        arr = [];
+      }
+    }
+    if (Array.isArray(arr)) for (const s of arr) map[String(s).toUpperCase()] = st;
+  }
+  return map;
+}
+
+/**
  * Create a booking and link it to its event.
- * booking: { CustomerName, Email, Phone, Seats:[...], SeatCount, Total, Status, CardLast4 }
+ * booking: { CustomerName, Email, Phone, Seats:[...], SeatCount, Total,
+ *            Status (default: pending), CardLast4 }
  */
 export async function createBooking(eventId, booking) {
   const res = await axios.post(
@@ -70,7 +100,7 @@ export async function createBooking(eventId, booking) {
         Seats: JSON.stringify(booking.Seats),
         SeatCount: booking.SeatCount,
         Total: booking.Total,
-        Status: booking.Status ?? PAID,
+        Status: booking.Status ?? PENDING,
         CardLast4: booking.CardLast4,
       },
     },
@@ -98,11 +128,15 @@ export async function findBookingByCode(code) {
   return res.data?.records?.[0] ?? null;
 }
 
-/** Set a booking's status (e.g. cancel). */
+/** Set a booking's status (e.g. confirm a payment, cancel). */
 export async function setBookingStatus(id, status) {
   await axios.patch(url(), [{ id: Number(id), fields: { Status: status } }], {
     headers: hdrs(),
   });
 }
 
-export const STATUSES = { RESERVED, PAID, CANCELLED };
+export const STATUSES = { PENDING, CONFIRMED, CANCELLED, RESERVED, PAID };
+export const isPaidStatus = (s) =>
+  ["pending", "confirmed", "paid"].includes(String(s || "").toLowerCase());
+export const isConfirmedStatus = (s) =>
+  ["confirmed", "paid"].includes(String(s || "").toLowerCase());

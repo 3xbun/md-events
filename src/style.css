@@ -10,6 +10,10 @@
   --accent-bg: rgba(225, 29, 72, 0.14);
   --free: #2ea043;
   --free-bg: rgba(46, 160, 67, 0.16);
+  --pending: #e3b341;
+  --pending-bg: rgba(227, 179, 65, 0.16);
+  --confirmed: #6e7681;
+  --confirmed-bg: rgba(110, 118, 129, 0.16);
   --occupied: #6e7681;
   --occupied-bg: rgba(110, 118, 129, 0.16);
   --selected: #e11d48;

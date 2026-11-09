@@ -51,6 +51,7 @@
           :max-column="Number(event.fields.MaxColumn) || 26"
           :front-rows="frontRowsOf(event)"
           :occupied="occupied"
+          :seat-states="seatStates"
           :selected="selected"
           :row-colors="rowColors"
           @select="toggleSeat"
@@ -90,7 +91,7 @@ import { ref, computed, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "../i18n.js";
 import { getEvent } from "../api/events.js";
-import { occupiedSeats } from "../api/bookings.js";
+import { occupiedSeats, seatStates as fetchSeatStates } from "../api/bookings.js";
 import { setSelection } from "../selection.js";
 import { priceGroups, rowColorMap, totalForSeats, priceForIndex, formatPriceRange, zoneLabel } from "../price.js";
 import { frontRowsOf, totalRowsOf, splitSeat, rowLabelToIndex } from "../layout.js";
@@ -102,6 +103,7 @@ const router = useRouter();
 const event = ref(null);
 const loading = ref(true);
 const occupied = ref([]);
+const seatStates = ref({});
 const selected = ref([]);
 const MAX_SELECT = 8;
 
@@ -140,10 +142,19 @@ async function load() {
   const id = route.params.id;
   loading.value = true;
   selected.value = [];
+  seatStates.value = {};
   try {
     const ev = await getEvent(id);
     event.value = ev;
-    if (ev) occupied.value = await occupiedSeats(ev.id);
+    if (ev) {
+      // occupied (blocking) + per-seat pending/confirmed states in parallel.
+      const [occ, states] = await Promise.all([
+        occupiedSeats(ev.id),
+        fetchSeatStates(ev.id),
+      ]);
+      occupied.value = occ;
+      seatStates.value = states;
+    }
   } catch (e) {
     console.error(e);
     event.value = null;

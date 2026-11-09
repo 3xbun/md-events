@@ -44,45 +44,35 @@
         </div>
 
         <h2 class="section-title">{{ t("payment_method") }}</h2>
-        <p class="mock-note">
-          <i class="fa-duotone fa-solid fa-triangle-exclamation"></i>
-          {{ t("mock_payment_note") }}
+        <p class="bank-note">
+          <i class="fa-duotone fa-solid fa-building-columns"></i>
+          {{ t("bank_transfer_note") }}
         </p>
-        <div class="field">
-          <label>{{ t("card_number") }}</label>
-          <input
-            v-model="card.number"
-            type="text"
-            inputmode="numeric"
-            :placeholder="t('card_number_hint')"
-            maxlength="19"
-            @input="onCardNumber"
-          />
-        </div>
-        <div class="card-row">
-          <div class="field">
-            <label>{{ t("card_expiry") }}</label>
-            <input v-model="card.expiry" type="text" placeholder="MM/YY" maxlength="5" />
-          </div>
-          <div class="field">
-            <label>{{ t("card_cvv") }}</label>
-            <input
-              v-model="card.cvv"
-              type="text"
-              inputmode="numeric"
-              maxlength="4"
-              @input="card.cvv = card.cvv.replace(/\D/g, '')"
-            />
+        <div class="bank-box">
+          <div class="bank-label">{{ t("bank_number") }}</div>
+          <div class="bank-row">
+            <span class="bank-num">{{ BANK_NUMBER }}</span>
+            <button class="btn btn-sm" @click="copyBank">
+              <i
+                :class="
+                  bankCopied ? 'fa-duotone fa-solid fa-check' : 'fa-duotone fa-solid fa-copy'
+                "
+              ></i>
+              {{ bankCopied ? t("copied") : t("copy_bank") }}
+            </button>
           </div>
         </div>
+        <p class="hint-line">{{ t("bank_transfer_to") }}</p>
 
         <button class="btn btn-primary" :disabled="!valid || paying" @click="pay">
           <i
             :class="
-              paying ? 'fa-solid fa-spinner fa-spin' : 'fa-duotone fa-solid fa-lock'
+              paying
+                ? 'fa-solid fa-spinner fa-spin'
+                : 'fa-duotone fa-solid fa-circle-check'
             "
           ></i>
-          {{ paying ? t("processing") : t("pay_now") }}
+          {{ paying ? t("processing") : t("confirm_transfer") }}
         </button>
         <div v-if="error" class="error">{{ error || t("error_generic") }}</div>
       </section>
@@ -107,9 +97,12 @@ const event = ref(null);
 const seats = ref([]);
 const paying = ref(false);
 const error = ref("");
+const bankCopied = ref(false);
+
+// Mock bank number (user-specified; replace with the real one in phase 2).
+const BANK_NUMBER = "000000000";
 
 const form = reactive({ name: "", email: "", phone: "" });
-const card = reactive({ number: "", expiry: "", cvv: "" });
 
 const total = computed(() => totalForSeats(event.value, seats.value));
 
@@ -118,23 +111,22 @@ function priceForLabel(label) {
   return `${p ? priceForIndex(event.value, rowLabelToIndex(p.row) - 1) : 0} ฿`;
 }
 
-function onCardNumber() {
-  card.number = card.number
-    .replace(/\D/g, "")
-    .slice(0, 16)
-    .replace(/(.{4})/g, "$1 ")
-    .trim();
+function copyBank() {
+  navigator.clipboard
+    ?.writeText(BANK_NUMBER)
+    .then(
+      () => {
+        bankCopied.value = true;
+        setTimeout(() => (bankCopied.value = false), 2000);
+      },
+      () => {}
+    )
+    .catch(() => {});
 }
 
-const valid = computed(() => {
-  return (
-    form.name.length >= 2 &&
-    /\S+@\S+\.\S+/.test(form.email) &&
-    card.number.replace(/\s/g, "").length >= 13 &&
-    card.expiry.length === 5 &&
-    card.cvv.length >= 3
-  );
-});
+// The flow only needs the customer's contact to create the pending booking;
+// name or phone is enough to identify and reach the customer.
+const valid = computed(() => form.name.trim().length >= 2 || form.phone.trim().length >= 5);
 
 function goBack() {
   router.push(`/event/${route.params.id}`);
@@ -157,8 +149,7 @@ async function pay() {
       Seats: seats.value,
       SeatCount: seats.value.length,
       Total: total.value,
-      Status: "paid",
-      CardLast4: card.number.replace(/\s/g, "").slice(-4),
+      Status: "pending",
       BookingCode: code,
     });
     clearSelection();
@@ -265,9 +256,9 @@ onMounted(async () => {
   margin: 0.4rem 0;
   font-size: 1.05rem;
 }
-.mock-note {
+.bank-note {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.45rem;
   color: var(--gold);
   background: rgba(212, 160, 23, 0.1);
@@ -277,12 +268,39 @@ onMounted(async () => {
   font-size: 0.82rem;
   margin: 0;
 }
-.card-row {
-  display: flex;
-  gap: 0.9rem;
+.bank-note i {
+  margin-top: 0.1rem;
 }
-.card-row .field {
-  flex: 1;
+.bank-box {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.bank-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.bank-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+.bank-num {
+  font-family: monospace;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: var(--text);
+}
+.hint-line {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin: 0;
 }
 .error {
   color: var(--accent-soft);

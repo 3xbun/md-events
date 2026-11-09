@@ -1,11 +1,29 @@
 <template>
   <div class="page confirmation">
-    <section class="card confirm-card">
-      <div class="check">
-        <i class="fa-duotone fa-solid fa-check"></i>
+    <div v-if="!booking" class="state empty">
+      <i class="fa-duotone fa-solid fa-circle-question"></i>
+      <span>{{ t("load_error") }}</span>
+    </div>
+    <section v-else class="card confirm-card">
+      <div class="check" :class="statusKey">
+        <i
+          class="fa-duotone fa-solid"
+          :class="
+            statusKey === 'confirmed'
+              ? 'fa-check'
+              : statusKey === 'cancelled'
+                ? 'fa-xmark'
+                : 'fa-hourglass-half'
+          "
+        ></i>
       </div>
-      <h1 class="title">{{ t("confirmation_title") }}</h1>
-      <p class="note">{{ t("confirmation_note") }}</p>
+      <h1 class="title">{{ t(statusTitleKey) }}</h1>
+      <p class="note">{{ t(statusNoteKey) }}</p>
+
+      <div v-if="statusKey === 'pending' && !confirmedJustNow" class="live-dot">
+        <i class="fa-solid fa-circle-notch fa-spin"></i>
+        {{ t("checking_payment") }}
+      </div>
 
       <div class="code-box" v-if="booking">
         <span class="muted">{{ t("booking_code") }}</span>
@@ -14,9 +32,7 @@
           <button class="btn btn-sm" @click="copyCode">
             <i
               :class="
-                copied
-                  ? 'fa-duotone fa-solid fa-check'
-                  : 'fa-duotone fa-solid fa-copy'
+                copied ? 'fa-duotone fa-solid fa-check' : 'fa-duotone fa-solid fa-copy'
               "
             ></i>
             {{ copied ? t("copied") : t("copy_code") }}
@@ -32,14 +48,18 @@
           </div>
         </div>
         <div class="detail">
-          <span class="muted">{{ t("paid_total") }}</span>
+          <span class="muted">{{ t("amount_due") }}</span>
           <span class="total">{{ Number(booking.fields.Total) || 0 }} ฿</span>
         </div>
         <div class="detail">
           <span class="muted">{{ t("status") }}</span>
-          <span class="status">{{ t(statusKey) }}</span>
+          <span class="status" :class="statusKey">{{ t(statusKey) }}</span>
         </div>
       </div>
+
+      <p v-if="statusKey === 'pending'" class="wait-note">
+        {{ t("wait_note") }}
+      </p>
 
       <router-link to="/" class="btn btn-primary">
         <i class="fa-duotone fa-solid fa-house"></i>
@@ -50,14 +70,18 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "../i18n.js";
-import { findBookingByCode } from "../api/bookings.js";
+import { findBookingByCode, isConfirmedStatus, isPaidStatus } from "../api/bookings.js";
 const { t } = useI18n();
 const route = useRoute();
 const booking = ref(null);
 const copied = ref(false);
+// True once a pending booking flips to confirmed while the customer is still
+// watching — lets us hide the "checking payment" spinner.
+const confirmedJustNow = ref(false);
+let pollTimer = null;
 
 const seatList = computed(() => {
   let arr = booking.value?.fields?.Seats;
@@ -70,10 +94,23 @@ const seatList = computed(() => {
   }
   return Array.isArray(arr) ? arr : [];
 });
+// pending / confirmed / cancelled (legacy reserved->pending, paid->confirmed).
 const statusKey = computed(() => {
-  const s = String(booking.value?.fields?.Status || "reserved").toLowerCase();
-  return { paid: "paid", reserved: "reserved", cancelled: "cancelled" }[s] || "reserved";
+  const s = String(booking.value?.fields?.Status || "").toLowerCase();
+  if (isConfirmedStatus(s)) return "confirmed";
+  if (s === "cancelled") return "cancelled";
+  return "pending";
 });
+const statusTitleKey = computed(() => ({
+  pending: "pending_title",
+  confirmed: "confirmed_title",
+  cancelled: "cancelled_title",
+})[statusKey.value]);
+const statusNoteKey = computed(() => ({
+  pending: "pending_note",
+  confirmed: "confirmed_note",
+  cancelled: "cancelled_note",
+})[statusKey.value]);
 
 function copyCode() {
   const code = booking.value?.fields?.BookingCode;
@@ -87,14 +124,46 @@ function copyCode() {
   );
 }
 
+// While the booking is pending, poll every 5s (max 10 min) so the page flips
+// to "confirmed" as soon as the admin verifies the payment.
+function startPoll() {
+  stopPoll();
+  if (!route.params.code) return;
+  const started = Date.now();
+  pollTimer = setInterval(async () => {
+    if (Date.now() - started > 10 * 60 * 1000) return stopPoll();
+    try {
+      const b = await findBookingByCode(route.params.code);
+      if (!b) return;
+      booking.value = b;
+      const s = String(b.fields?.Status || "").toLowerCase();
+      if (isConfirmedStatus(s)) {
+        confirmedJustNow.value = true;
+        stopPoll();
+      } else if (s === "cancelled") {
+        stopPoll();
+      }
+    } catch {
+      /* keep polling on transient errors */
+    }
+  }, 5000);
+}
+function stopPoll() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = null;
+}
+
 async function load() {
   booking.value = null;
   copied.value = false;
+  confirmedJustNow.value = false;
+  stopPoll();
   try {
     booking.value = await findBookingByCode(route.params.code);
   } catch (e) {
     console.error(e);
   }
+  if (booking.value && statusKey.value === "pending") startPoll();
 }
 watch(
   () => route.params.code,
@@ -103,6 +172,7 @@ watch(
   }
 );
 onMounted(load);
+onBeforeUnmount(stopPoll);
 </script>
 
 <style scoped>
@@ -131,6 +201,14 @@ onMounted(load);
   align-items: center;
   justify-content: center;
   font-size: 1.9rem;
+}
+.check.pending {
+  background: var(--pending-bg);
+  color: var(--pending);
+}
+.check.cancelled {
+  background: var(--occupied-bg);
+  color: var(--muted);
 }
 .title {
   margin: 0;
@@ -198,5 +276,30 @@ onMounted(load);
 .status {
   font-weight: 700;
   color: var(--free);
+}
+.status.pending {
+  color: var(--pending);
+}
+.status.cancelled {
+  color: var(--muted);
+}
+.live-dot {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  color: var(--pending);
+  background: var(--pending-bg);
+  border: 1px solid rgba(227, 179, 65, 0.3);
+  border-radius: 9px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.wait-note {
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin: 0;
+  text-align: center;
 }
 </style>
