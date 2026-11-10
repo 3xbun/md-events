@@ -36,6 +36,7 @@ export const en = {
   zone_add_locked: "Add locked zone",
   preview_map: "Map preview",
   select_seats_hint: "Pick the seats you want",
+  deselect: "Deselect",
   max_select_hint: "Up to {count} seats",
   total_seats: "Total seats selected",
   clear_selection: "Clear",

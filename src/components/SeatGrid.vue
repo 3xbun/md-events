@@ -63,7 +63,9 @@
                 <i
                   v-if="seatState(row.letter, c) === 'selected'"
                   class="fa-solid fa-check seat-badge badge-sel"
-                  aria-hidden="true"
+                  role="button"
+                  :aria-label="t('deselect') + ' ' + seatLabel(row.letter, c)"
+                  @click.stop="onSeat(row.letter, c)"
                 ></i>
                 <i
                   v-else-if="seatState(row.letter, c) === 'pending'"
@@ -246,15 +248,18 @@ function seatClass(r, c) {
     occupied: st === "confirmed",
   };
 }
-// Free + selected seats are WHITE (icon-coded; the check badge carries the
-// selection state). Reserved rows keep their zone color.
+// Free seats keep the row's price-group color (old style). Selected is
+// white (the check badge carries the state), reserved keeps zone color.
 // Pending/confirmed use their fixed CSS state colors.
 function seatStyle(r, c) {
   const st = seatState(r, c);
   if (st === "reserved") {
     return { color: reservedOf(r)?.color || "var(--reserved)" };
   }
-  if (st === "free" || st === "selected") {
+  if (st === "free") {
+    return { color: props.rowColors[r] || "var(--free)" };
+  }
+  if (st === "selected") {
     return { color: "var(--text)" };
   }
   return {};
@@ -398,8 +403,9 @@ function onSeat(r, c) {
    pending = white + clock badge, confirmed = grey, no overlay. */
 .seat-badge {
   position: absolute;
-  top: -3px;
-  right: -3px;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
   width: 13px;
   height: 13px;
   border-radius: 50%;
@@ -411,11 +417,14 @@ function onSeat(r, c) {
   background: var(--surface-2);
   border: 1px solid var(--border);
   pointer-events: none;
+  z-index: 1;
 }
 .badge-sel {
   color: #fff;
   background: var(--accent);
   border-color: var(--accent);
+  pointer-events: auto;
+  cursor: pointer;
 }
 .badge-pending {
   color: #fff;
@@ -428,6 +437,8 @@ function onSeat(r, c) {
   width: 13px;
   height: 13px;
   font-size: 8px;
+  transform: none;
+  pointer-events: none;
 }
 .legend-sel {
   color: var(--text);
@@ -446,8 +457,7 @@ function onSeat(r, c) {
     font-size: 6px;
   }
   .seat-badge {
-    top: -2px;
-    right: -2px;
+    top: -3px;
   }
 }
 .seat.free {
