@@ -105,6 +105,6 @@ export const en = {
   confirm_payment: "Confirm payment",
   cancel_booking: "Cancel",
   confirm_cancel_booking: "Cancel this booking and release its seats?",
-  lang_th: ["\u0E17", "\u0E2D"].join(""), // Thai label, from codepoints
+  lang_th: "ไทย",
   lang_en: "EN",
 };
