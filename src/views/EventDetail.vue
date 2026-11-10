@@ -49,6 +49,7 @@
             v-for="rg in reservedGroups"
             :key="rg.from"
             class="zone-chip zone-chip-reserved"
+            :style="{ color: rg.color || 'var(--reserved)', borderColor: rg.color ? hexAlpha(rg.color) : undefined }"
           >
             <span
               class="zone-dot"
@@ -145,6 +146,13 @@ const reservedGroups = computed(() =>
 function reservedZoneLabel(z) {
   const rows = z.from === z.to ? z.from : `${z.from}\u2013${z.to}`;
   return `${rows} \u00b7 ${z.reserved}`;
+}
+// hex (#rrggbb) -> rgba(hex, alpha) for a translucent border.
+function hexAlpha(hex, a = 0.45) {
+  const h = String(hex || "").replace("#", "");
+  if (h.length !== 6) return null;
+  const n = parseInt(h, 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
 }
 const totalThb = computed(() => totalForSeats(event.value, selected.value));
 

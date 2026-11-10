@@ -305,7 +305,7 @@ function onSeat(r, c) {
   color: var(--confirmed);
 }
 .legend-reserved {
-  color: var(--reserved);
+  color: var(--muted);
 }
 .legend-occupied {
   color: var(--occupied);
