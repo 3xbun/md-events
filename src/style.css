@@ -16,6 +16,8 @@
   --confirmed-bg: rgba(110, 118, 129, 0.16);
   --occupied: #6e7681;
   --occupied-bg: rgba(110, 118, 129, 0.16);
+  --reserved: #7c4dff;
+  --reserved-bg: rgba(124, 77, 255, 0.18);
   --selected: #e11d48;
   --selected-bg: rgba(225, 29, 72, 0.9);
   --gold: #d4a017;

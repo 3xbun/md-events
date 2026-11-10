@@ -108,18 +108,40 @@
           <div v-if="!form.Zones.length" class="zones-empty">
             {{ t("zones_empty") }}
           </div>
-          <div v-for="(z, i) in form.Zones" :key="i" class="zone-row">
-            <select v-model="z.RowFrom">
-              <option v-for="r in rowOptions" :key="r" :value="r">{{ r }}</option>
-            </select>
-            <span class="zone-dash">–</span>
-            <select v-model="z.RowTo">
-              <option v-for="r in rowOptions" :key="r" :value="r">{{ r }}</option>
-            </select>
-            <input v-model.number="z.Price" type="number" min="0" :placeholder="t('price')" />
-            <button class="zone-remove" @click="removeZone(i)" aria-label="remove">
-              <i class="fa-duotone fa-solid fa-xmark"></i>
-            </button>
+          <div v-for="(z, i) in form.Zones" :key="i" class="zone-card">
+            <div class="zone-row">
+              <select v-model="z.RowFrom">
+                <option v-for="r in rowOptions" :key="r" :value="r">{{ r }}</option>
+              </select>
+              <span class="zone-dash">–</span>
+              <select v-model="z.RowTo">
+                <option v-for="r in rowOptions" :key="r" :value="r">{{ r }}</option>
+              </select>
+              <input
+                v-model.number="z.Price"
+                type="number"
+                min="0"
+                :placeholder="t('price')"
+                :disabled="z.ReservedFor"
+              />
+              <button class="zone-remove" @click="removeZone(i)" aria-label="remove">
+                <i class="fa-duotone fa-solid fa-xmark"></i>
+              </button>
+            </div>
+            <div class="zone-row zone-row-2">
+              <input
+                v-model="z.Color"
+                type="color"
+                class="zone-color"
+                :title="t('zone_color')"
+              />
+              <input
+                v-model="z.ReservedFor"
+                type="text"
+                class="zone-reserved"
+                :placeholder="t('reserved_for_placeholder')"
+              />
+            </div>
           </div>
           <div v-if="uncoveredRows" class="zones-warn">
             <i class="fa-duotone fa-solid fa-triangle-exclamation"></i>
@@ -280,7 +302,7 @@ const rowOptions = computed(() => {
 
 function addZone() {
   const first = rowOptions.value[0] || "A";
-  form.Zones.push({ RowFrom: first, RowTo: first, Price: 0 });
+  form.Zones.push({ RowFrom: first, RowTo: first, Price: 0, Color: "", ReservedFor: "" });
 }
 function removeZone(i) {
   form.Zones.splice(i, 1);
@@ -292,7 +314,8 @@ const frontOverflow = computed(() => {
   return tr > 0 && fc > tr;
 });
 // Rows (0..totalRows-1) not covered by any zone -> they fall back to the base
-// Price. Index-based so rows beyond Z (AA, AB...) are handled.
+// Price. Index-based so rows beyond Z (AA, AB...) are handled. Rows inside a
+// RESERVED zone are treated as covered (they are not purchasable at all).
 const uncoveredRows = computed(() => {
   const n = Math.max(0, Math.floor(Number(form.TotalRows) || 0));
   const covered = new Set();
@@ -413,11 +436,13 @@ function parseZonesField(raw) {
   }
   if (!Array.isArray(z)) return [];
   return z
-    .filter((e) => e && e.RowFrom && e.Price)
+    .filter((e) => e && e.RowFrom && (e.Price || e.ReservedFor))
     .map((e) => ({
       RowFrom: String(e.RowFrom).toUpperCase(),
       RowTo: String(e.RowTo ?? e.RowFrom).toUpperCase(),
       Price: Number(e.Price) || 0,
+      Color: String(e.Color ?? e.color ?? ""),
+      ReservedFor: String(e.ReservedFor ?? e.reservedFor ?? "").trim(),
     }));
 }
 
@@ -475,7 +500,17 @@ async function save() {
       IsActive: Boolean(form.IsActive),
       Zones: form.Zones.length
         ? JSON.stringify(
-            form.Zones.filter((z) => z.RowFrom && z.Price > 0)
+            form.Zones
+              .filter((z) => z.RowFrom && (Number(z.Price) > 0 || String(z.ReservedFor || "").trim()))
+              .map((z) => ({
+                RowFrom: z.RowFrom,
+                RowTo: z.RowTo || z.RowFrom,
+                Price: Number(z.Price) || 0,
+                ...(String(z.Color || "").trim() ? { Color: String(z.Color).trim() } : {}),
+                ...(String(z.ReservedFor || "").trim()
+                  ? { ReservedFor: String(z.ReservedFor).trim() }
+                  : {}),
+              }))
           )
         : null,
     };
@@ -735,6 +770,42 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+.zone-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.zone-row-2 {
+  gap: 0.5rem;
+}
+.zone-color {
+  flex: none;
+  width: 38px;
+  height: 30px;
+  padding: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.zone-reserved {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.45rem 0.6rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+.zone-row input[disabled] {
+  opacity: 0.5;
 }
 .zone-row select {
   flex: none;

@@ -40,10 +40,22 @@
           <h2 class="section-title">{{ t("seat_map") }}</h2>
           <span class="hint">{{ t("select_seats_hint") }}</span>
         </div>
-        <div v-if="groups.length" class="zone-legend">
+        <div v-if="groups.length || reservedGroups.length" class="zone-legend">
           <span v-for="g in groups" :key="g.from" class="zone-chip">
             <span class="zone-dot" :style="{ background: g.color }"></span>
             {{ zoneLabel(g) }}
+          </span>
+          <span
+            v-for="rg in reservedGroups"
+            :key="rg.from"
+            class="zone-chip zone-chip-reserved"
+          >
+            <span
+              class="zone-dot"
+              :style="{ background: rg.color || 'var(--reserved)' }"
+            ></span>
+            <i class="fa-solid fa-lock" aria-hidden="true"></i>
+            {{ reservedZoneLabel(rg) }}
           </span>
         </div>
         <SeatGrid
@@ -54,6 +66,7 @@
           :seat-states="seatStates"
           :selected="selected"
           :row-colors="rowColors"
+          :reserved-rows="reservedRowMap(event)"
           @select="toggleSeat"
         />
       </section>
@@ -93,7 +106,16 @@ import { useI18n } from "../i18n.js";
 import { getEvent } from "../api/events.js";
 import { occupiedSeats, seatStates as fetchSeatStates } from "../api/bookings.js";
 import { setSelection } from "../selection.js";
-import { priceGroups, rowColorMap, totalForSeats, priceForIndex, formatPriceRange, zoneLabel } from "../price.js";
+import {
+  priceGroups,
+  rowColorMap,
+  totalForSeats,
+  priceForIndex,
+  formatPriceRange,
+  zoneLabel,
+  parseZones,
+  reservedRowMap,
+} from "../price.js";
 import { frontRowsOf, totalRowsOf, splitSeat, rowLabelToIndex } from "../layout.js";
 import SeatGrid from "../components/SeatGrid.vue";
 const { t } = useI18n();
@@ -111,6 +133,15 @@ const MAX_SELECT = 8;
 // map colors + legend. Color encodes price, so same-price rows share a hue.
 const groups = computed(() => priceGroups(event.value));
 const rowColors = computed(() => rowColorMap(event.value));
+// Reserved zones (staff/VIP rows) — locked, not purchasable, shown in the
+// legend with their label.
+const reservedGroups = computed(() =>
+  parseZones(event.value).filter((z) => z.reserved)
+);
+function reservedZoneLabel(z) {
+  const rows = z.from === z.to ? z.from : `${z.from}\u2013${z.to}`;
+  return `${rows} \u00b7 ${z.reserved}`;
+}
 const totalThb = computed(() => totalForSeats(event.value, selected.value));
 
 function fmtDate(ev) {
@@ -302,6 +333,13 @@ onMounted(load);
   height: 12px;
   border-radius: 4px;
   flex: none;
+}
+.zone-chip-reserved {
+  color: var(--reserved);
+  border-color: rgba(124, 77, 255, 0.45);
+}
+.zone-chip-reserved i {
+  font-size: 0.7rem;
 }
 .cta {
   margin-top: 0.3rem;

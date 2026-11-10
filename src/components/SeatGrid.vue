@@ -13,6 +13,10 @@
       <span class="legend-item">
         <i class="fa-solid fa-seat legend-confirmed"></i> {{ t("seat_confirmed") }}
       </span>
+      <span v-if="hasReserved" class="legend-item">
+        <i class="fa-solid fa-lock legend-reserved"></i>
+        {{ reservedLegend }}
+      </span>
     </div>
     <div class="grid-scroll">
       <div v-if="!rows.length" class="grid-empty"></div>
@@ -32,9 +36,10 @@
           <template v-for="row in sec.rows" :key="row.letter">
             <div
               class="row-label"
-              :style="{ color: rowColors[row.letter] || undefined }"
+              :class="{ 'row-label-reserved': reservedOf(row.letter) }"
+              :style="rowLabelStyle(row)"
             >
-              {{ row.letter }}
+              {{ rowLabelText(row) }}
             </div>
             <template v-for="c in row.width" :key="row.letter + c">
               <div v-if="c === sec.aisleBefore" class="aisle" aria-hidden="true"></div>
@@ -47,7 +52,10 @@
                 :tabindex="seatEnabled(row.letter, c) ? 0 : -1"
                 @click="onSeat(row.letter, c)"
               >
-                <i class="fa-solid fa-seat" aria-hidden="true"></i>
+                <i
+                  :class="reservedOf(row.letter) ? 'fa-solid fa-lock' : 'fa-solid fa-seat'"
+                  aria-hidden="true"
+                ></i>
               </div>
             </template>
           </template>
@@ -82,6 +90,10 @@ const props = defineProps({
   seatStates: { type: Object, default: () => ({}) },
   // row-label -> color map for price-group coloring of free seats
   rowColors: { type: Object, default: () => ({}) },
+  // row-label -> {reserved, color} map for RESERVED rows (locked from
+  // customer booking: staff/VIP rows). Rows in this map render a lock icon,
+  // are unclickable, and ignore occupied/selected state.
+  reservedRows: { type: Object, default: () => ({}) },
 });
 const emit = defineEmits(["select"]);
 
@@ -138,9 +150,10 @@ function maxFrontWidth() {
 // Center aisle: the column BEFORE which the gap is inserted for a given width.
 const aisleFor = (width) => Math.floor(width / 2) + 1;
 // Column template for a section: row-label column + per-column (1fr, plus a
-// 14px aisle spacer before the center column).
+// 14px aisle spacer before the center column). The label column is
+// max-content so reserved labels ("Staff", "VIP") widen it.
 const colsTemplate = (width) => {
-  const parts = ["24px"];
+  const parts = ["minmax(24px, max-content)"];
   const aisle = aisleFor(width);
   for (let c = 1; c <= width; c++) {
     if (c === aisle) parts.push("14px");
@@ -176,7 +189,25 @@ const stateMap = computed(() => {
 function seatLabel(r, c) {
   return `${r}${c}`;
 }
+function reservedOf(rowLetter) {
+  return props.reservedRows[String(rowLetter).toUpperCase()] || null;
+}
+function rowLabelText(row) {
+  const rz = reservedOf(row.letter);
+  return rz ? rz.reserved : row.letter;
+}
+function rowLabelStyle(row) {
+  const rz = reservedOf(row.letter);
+  if (rz) return { color: rz.color || "var(--reserved)" };
+  return { color: props.rowColors[row.letter] || undefined };
+}
+const hasReserved = computed(() => Object.keys(props.reservedRows).length > 0);
+const reservedLegend = computed(() => {
+  const labels = [...new Set(Object.values(props.reservedRows).map((z) => z.reserved))];
+  return labels.length ? labels.join(" · ") : t("seat_reserved");
+});
 function seatState(r, c) {
+  if (reservedOf(r)) return "reserved";
   const label = seatLabel(r, c);
   if (selSet.value.has(label)) return "selected";
   const st = stateMap.value[label];
@@ -194,12 +225,17 @@ function seatClass(r, c) {
     selected: st === "selected",
     pending: st === "pending",
     confirmed: st === "confirmed",
+    reserved: st === "reserved",
     occupied: st === "confirmed",
   };
 }
 // Free seats are tinted with their row's price-group color (color = price).
+// Reserved rows use their zone color (fallback --reserved).
 // Pending/selected/confirmed keep their fixed state colors from CSS.
 function seatStyle(r, c) {
+  if (seatState(r, c) === "reserved") {
+    return { color: reservedOf(r)?.color || "var(--reserved)" };
+  }
   if (seatState(r, c) !== "free") return {};
   return { color: props.rowColors[r] || "var(--free)" };
 }
@@ -239,6 +275,9 @@ function onSeat(r, c) {
 }
 .legend-confirmed {
   color: var(--confirmed);
+}
+.legend-reserved {
+  color: var(--reserved);
 }
 .legend-occupied {
   color: var(--occupied);
@@ -354,5 +393,13 @@ function onSeat(r, c) {
 .seat.occupied {
   color: var(--confirmed);
   cursor: not-allowed;
+}
+.seat.reserved {
+  cursor: not-allowed;
+}
+.row-label-reserved {
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 </style>
