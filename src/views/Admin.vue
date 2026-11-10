@@ -6,7 +6,7 @@
     <section v-if="!unlocked" class="card pin-card">
       <p class="hint">{{ t("admin_hint") }}</p>
       <div class="field">
-        <label>Staff PIN</label>
+        <label>{{ t("pin_label") }}</label>
         <input
           v-model.trim="pin"
           type="password"
@@ -19,7 +19,7 @@
         <i class="fa-duotone fa-solid fa-lock-open"></i>
         {{ t("admin") }}
       </button>
-      <div v-if="pinError" class="error">Incorrect PIN</div>
+      <div v-if="pinError" class="error">{{ t("pin_error") }}</div>
     </section>
 
     <template v-else>
@@ -381,7 +381,7 @@ function addZone(locked = false) {
     RowTo: first,
     Price: 0,
     Color: "",
-    ReservedFor: locked ? "Staff" : "",
+    ReservedFor: locked ? t("zone_staff") : "",
   });
 }
 function removeZone(i) {
