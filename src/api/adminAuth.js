@@ -1,8 +1,8 @@
 // 6-digit staff PIN gate for /admin.
 // Only the SHA-256 (hex) of the PIN ships in the bundle.
-// PIN for md-events: 201106 (change by regenerating the hash below).
+// PIN for md-events: 020228 (change by regenerating the hash below).
 export const PIN_HASH =
-  "30e786775ba66864ae9b0efc629845ab9b1f71f24c45196bf97d593955c15567";
+  "bdeaaf6d0e1fd3a4b5fef6862f76f19e9cb9305ccb02d6067402ccc51fdc8ee8";
 
 const UNLOCK_KEY = "md-events.admin-unlocked";
 
