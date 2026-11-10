@@ -6,7 +6,7 @@
       </span>
       <span class="legend-item">
         <i class="fa-solid fa-seat legend-sel"></i>
-        <i class="fa-duotone fa-circle-check legend-badge badge-sel"></i>
+        <i class="fa-solid fa-circle-check legend-badge badge-sel"></i>
         {{ t("seat_selected") }}
       </span>
       <span class="legend-item">
@@ -64,7 +64,7 @@
                 ></i>
                 <i
                   v-if="seatState(row.letter, c) === 'selected'"
-                  class="fa-duotone fa-solid fa-circle-check seat-badge badge-sel"
+                  class="fa-solid fa-circle-check seat-badge badge-sel"
                   role="button"
                   :aria-label="t('deselect') + ' ' + seatLabel(row.letter, c)"
                   @click.stop="onSeat(row.letter, c)"
@@ -397,10 +397,9 @@ function onSeat(r, c) {
   font-size: 1rem;
   transition: color 0.1s ease;
 }
-/* Icon-coded states: free = zone color, selected = white + duotone
-   circle-check on top, pending = white + duotone circle-clock,
-   confirmed = grey, no overlay. The FA duotone glyph carries its own
-   circle — no box needed. */
+/* Icon-coded states: all non-confirmed seats keep zone color; state is
+   carried by a small badge on top (check = selected, clock = pending).
+   Solid glyphs + subtle drop shadow for legibility. */
 .seat .seat-badge {
   position: absolute;
   top: -4px;
@@ -410,6 +409,7 @@ function onSeat(r, c) {
   line-height: 1;
   pointer-events: none;
   z-index: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 .badge-sel {
   color: var(--accent);
