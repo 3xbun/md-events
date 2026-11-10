@@ -92,6 +92,6 @@ export const th = {
   cancel_booking: "ยกเลิก",
   confirm_cancel_booking: "ยกเลิกการจองและคืนที่นั่งใช่หรือไม่?",
   cancelled: "ยกเลิกแล้ว",
-  lang_th: "ทอ",
+  lang_th: "ไทย",
   lang_en: "EN",
 };
