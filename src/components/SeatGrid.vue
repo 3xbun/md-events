@@ -6,12 +6,12 @@
       </span>
       <span class="legend-item">
         <i class="fa-solid fa-seat legend-sel"></i>
-        <i class="fa-solid fa-check seat-badge legend-badge badge-sel"></i>
+        <i class="fa-solid fa-circle-check legend-badge badge-sel"></i>
         {{ t("seat_selected") }}
       </span>
       <span class="legend-item">
         <i class="fa-solid fa-seat legend-pending"></i>
-        <i class="fa-solid fa-clock seat-badge legend-badge badge-pending"></i>
+        <i class="fa-solid fa-clock legend-badge badge-pending"></i>
         {{ t("seat_pending") }}
       </span>
       <span class="legend-item">
@@ -57,19 +57,21 @@
                 @click="onSeat(row.letter, c)"
               >
                 <i
-                  :class="reservedOf(row.letter) ? 'fa-solid fa-lock' : 'fa-solid fa-seat'"
+                  :class="reservedOf(row.letter)
+                    ? 'fa-duotone fa-solid fa-lock'
+                    : 'fa-solid fa-seat'"
                   aria-hidden="true"
                 ></i>
                 <i
                   v-if="seatState(row.letter, c) === 'selected'"
-                  class="fa-solid fa-check seat-badge badge-sel"
+                  class="fa-duotone fa-solid fa-circle-check seat-badge badge-sel"
                   role="button"
                   :aria-label="t('deselect') + ' ' + seatLabel(row.letter, c)"
                   @click.stop="onSeat(row.letter, c)"
                 ></i>
                 <i
                   v-else-if="seatState(row.letter, c) === 'pending'"
-                  class="fa-solid fa-clock seat-badge badge-pending"
+                  class="fa-duotone fa-solid fa-circle-clock seat-badge badge-pending"
                   aria-hidden="true"
                 ></i>
               </div>
@@ -399,50 +401,37 @@ function onSeat(r, c) {
   font-size: 1rem;
   transition: color 0.1s ease;
 }
-/* Icon-coded states: free = white, selected = white + check badge,
-   pending = white + clock badge, confirmed = grey, no overlay. */
-.seat-badge {
+/* Icon-coded states: free = zone color, selected = white + duotone
+   circle-check on top, pending = white + duotone circle-clock,
+   confirmed = grey, no overlay. The FA duotone glyph carries its own
+   circle — no box needed. */
+.seat .seat-badge {
   position: absolute;
-  top: -4px;
+  top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 8px;
+  font-size: 9px !important; /* beats .seat i { font-size: 1rem } */
   line-height: 1;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
   pointer-events: none;
   z-index: 1;
 }
 .badge-sel {
-  color: #fff;
-  background: var(--accent);
-  border-color: var(--accent);
+  color: var(--accent);
   pointer-events: auto;
   cursor: pointer;
 }
 .badge-pending {
-  color: #fff;
-  background: var(--pending);
-  border-color: var(--pending);
+  color: var(--pending);
 }
 .legend-badge {
-  position: static;
   flex: none;
-  width: 13px;
-  height: 13px;
-  font-size: 8px;
+  font-size: 13px;
   transform: none;
   pointer-events: none;
 }
-.legend-sel {
-  color: var(--text);
-}
+/* Legend seat icons match the grid: selected + pending render white
+   (the badge carries the state); free stays neutral, confirmed grey. */
+.legend-sel,
 .legend-pending {
   color: var(--text);
 }
@@ -450,14 +439,8 @@ function onSeat(r, c) {
   .seat i {
     font-size: 0.55rem;
   }
-  .seat-badge,
-  .legend-badge {
-    width: 10px;
-    height: 10px;
-    font-size: 6px;
-  }
-  .seat-badge {
-    top: -3px;
+  .seat .seat-badge {
+    font-size: 7px !important;
   }
 }
 .seat.free {
