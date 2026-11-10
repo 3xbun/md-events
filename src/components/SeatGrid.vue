@@ -6,12 +6,12 @@
       </span>
       <span class="legend-item">
         <i class="fa-solid fa-seat legend-sel"></i>
-        <i class="fa-solid fa-circle-check legend-badge badge-sel"></i>
+        <i class="fa-duotone fa-circle-check legend-badge badge-sel"></i>
         {{ t("seat_selected") }}
       </span>
       <span class="legend-item">
         <i class="fa-solid fa-seat legend-pending"></i>
-        <i class="fa-solid fa-clock legend-badge badge-pending"></i>
+        <i class="fa-duotone fa-circle-clock legend-badge badge-pending"></i>
         {{ t("seat_pending") }}
       </span>
       <span class="legend-item">
@@ -424,12 +424,6 @@ function onSeat(r, c) {
   font-size: 13px;
   transform: none;
   pointer-events: none;
-}
-/* Legend seat icons match the grid: selected + pending render white
-   (the badge carries the state); free stays neutral, confirmed grey. */
-.legend-sel,
-.legend-pending {
-  color: var(--text);
 }
 @media (max-width: 600px) {
   .seat i {
