@@ -100,9 +100,13 @@
         <div class="zones-box">
           <div class="zones-head">
             <span class="section-title">{{ t("zones") }}</span>
-            <button class="btn btn-sm" @click="addZone">
+            <button class="btn btn-sm" @click="addZone(false)">
               <i class="fa-duotone fa-solid fa-plus"></i>
               {{ t("zone_add") }}
+            </button>
+            <button class="btn btn-sm" @click="addZone(true)">
+              <i class="fa-duotone fa-solid fa-lock"></i>
+              {{ t("zone_add_locked") }}
             </button>
           </div>
           <div v-if="!form.Zones.length" class="zones-empty">
@@ -122,7 +126,7 @@
                 type="number"
                 min="0"
                 :placeholder="t('price')"
-                :disabled="z.ReservedFor"
+                :disabled="!!z.ReservedFor"
               />
               <button class="zone-remove" @click="removeZone(i)" aria-label="remove">
                 <i class="fa-duotone fa-solid fa-xmark"></i>
@@ -370,9 +374,15 @@ const rowOptions = computed(() => {
   return Array.from({ length: n }, (_, i) => rowLabel(i + 1));
 });
 
-function addZone() {
+function addZone(locked = false) {
   const first = rowOptions.value[0] || "A";
-  form.Zones.push({ RowFrom: first, RowTo: first, Price: 0, Color: "", ReservedFor: "" });
+  form.Zones.push({
+    RowFrom: first,
+    RowTo: first,
+    Price: 0,
+    Color: "",
+    ReservedFor: locked ? "Staff" : "",
+  });
 }
 function removeZone(i) {
   form.Zones.splice(i, 1);

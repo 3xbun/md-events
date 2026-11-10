@@ -84,6 +84,10 @@
           <span v-for="s in selected" :key="s" class="chip-seat">
             {{ s }}<em>{{ priceForLabel(s) }}</em>
           </span>
+          <button class="btn btn-sm clear-sel" @click="selected = []">
+            <i class="fa-duotone fa-solid fa-xmark"></i>
+            {{ t("clear_selection") }}
+          </button>
         </div>
         <router-link
           :to="`/checkout/${event.id}`"
@@ -293,6 +297,9 @@ onMounted(load);
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+}
+.clear-sel {
+  align-self: center;
 }
 .chip-seat {
   background: var(--accent-bg);

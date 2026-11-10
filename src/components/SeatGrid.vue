@@ -216,7 +216,10 @@ function seatState(r, c) {
   return "free";
 }
 function seatEnabled(r, c) {
-  return seatState(r, c) === "free";
+  // Tappable = free (select) or selected (deselect); reserved/occupied/pending
+  // are not.
+  const st = seatState(r, c);
+  return st === "free" || st === "selected";
 }
 function seatClass(r, c) {
   const st = seatState(r, c);
@@ -240,7 +243,10 @@ function seatStyle(r, c) {
   return { color: props.rowColors[r] || "var(--free)" };
 }
 function onSeat(r, c) {
-  if (!seatEnabled(r, c)) return;
+  // Emit for free (select) and selected (deselect) — the parent toggles.
+  // Pending/confirmed/reserved are not tappable.
+  const st = seatState(r, c);
+  if (st !== "free" && st !== "selected") return;
   emit("select", seatLabel(r, c));
 }
 </script>
