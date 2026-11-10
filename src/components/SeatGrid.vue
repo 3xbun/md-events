@@ -250,21 +250,17 @@ function seatClass(r, c) {
     occupied: st === "confirmed",
   };
 }
-// Free seats keep the row's price-group color (old style). Selected is
-// white (the check badge carries the state), reserved keeps zone color.
-// Pending/confirmed use their fixed CSS state colors.
+// Free / selected / pending seats keep the row's zone color (the badge
+// carries the state). Confirmed = grey (CSS). Reserved = zone color.
 function seatStyle(r, c) {
   const st = seatState(r, c);
   if (st === "reserved") {
     return { color: reservedOf(r)?.color || "var(--reserved)" };
   }
-  if (st === "free") {
-    return { color: props.rowColors[r] || "var(--free)" };
+  if (st === "confirmed") {
+    return {}; // CSS grey
   }
-  if (st === "selected") {
-    return { color: "var(--text)" };
-  }
-  return {};
+  return { color: props.rowColors[r] || "var(--free)" };
 }
 function onSeat(r, c) {
   // Emit for free (select) and selected (deselect) — the parent toggles.
@@ -407,10 +403,10 @@ function onSeat(r, c) {
    circle — no box needed. */
 .seat .seat-badge {
   position: absolute;
-  top: 0;
+  top: -4px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 9px !important; /* beats .seat i { font-size: 1rem } */
+  font-size: 13px !important; /* beats .seat i { font-size: 1rem } */
   line-height: 1;
   pointer-events: none;
   z-index: 1;
@@ -440,7 +436,8 @@ function onSeat(r, c) {
     font-size: 0.55rem;
   }
   .seat .seat-badge {
-    font-size: 7px !important;
+    font-size: 10px !important;
+    top: -3px;
   }
 }
 .seat.free {
@@ -450,11 +447,10 @@ function onSeat(r, c) {
   transform: scale(1.15);
 }
 .seat.selected {
-  /* white seat + red check badge (inline style sets the color) */
+  /* zone-color seat + red circle-check badge (inline style sets color) */
 }
 .seat.pending {
-  /* white seat + gold clock badge */
-  color: var(--text);
+  /* zone-color seat + gold circle-clock badge (inline style sets color) */
   cursor: not-allowed;
 }
 .seat.confirmed,
