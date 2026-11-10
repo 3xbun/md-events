@@ -180,7 +180,7 @@ onMounted(async () => {
 .checkout {
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
+  gap: var(--page-gap);
 }
 .back-link {
   display: inline-flex;
@@ -202,7 +202,7 @@ onMounted(async () => {
   font-size: 1.4rem;
 }
 .card {
-  padding: 1rem;
+  padding: var(--card-pad);
 }
 .order-summary {
   display: flex;
@@ -275,7 +275,7 @@ onMounted(async () => {
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 0.8rem;
+  padding: var(--box-pad);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -309,7 +309,7 @@ onMounted(async () => {
 .state {
   text-align: center;
   color: var(--muted);
-  padding: 2rem;
+  padding: var(--state-pad);
   font-size: 0.95rem;
 }
 </style>

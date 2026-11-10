@@ -184,7 +184,7 @@ onBeforeUnmount(stopPoll);
 .confirm-card {
   width: 100%;
   max-width: 460px;
-  padding: 1.75rem;
+  padding: var(--sp-6);
   display: flex;
   flex-direction: column;
   align-items: center;

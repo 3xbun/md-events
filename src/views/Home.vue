@@ -89,7 +89,7 @@ onMounted(async () => {
 .home {
   display: flex;
   flex-direction: column;
-  gap: 1.75rem;
+  gap: var(--page-gap);
 }
 .hero {
   text-align: center;
@@ -124,7 +124,7 @@ onMounted(async () => {
 }
 .state {
   text-align: center;
-  padding: 3rem 1rem;
+  padding: var(--state-pad);
   color: var(--muted);
   font-size: 0.95rem;
 }
@@ -142,7 +142,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 0.9rem;
-  padding: 0.9rem;
+  padding: var(--row-pad);
   transition: transform 0.14s ease, border-color 0.14s ease;
 }
 .event-card:hover {
@@ -196,12 +196,12 @@ onMounted(async () => {
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  font-size: 0.75rem;
+  gap: 0.35rem;
+  font-size: 0.8rem;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 0.2rem 0.6rem;
+  padding: 0.25rem 0.65rem;
 }
 .chip i {
   color: var(--muted);

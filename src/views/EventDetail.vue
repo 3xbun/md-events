@@ -217,7 +217,7 @@ onMounted(load);
 .event-detail {
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
+  gap: var(--page-gap);
 }
 .back-link {
   display: inline-flex;
@@ -233,6 +233,9 @@ onMounted(load);
 }
 .back-link:hover {
   color: var(--text);
+}
+.event-head {
+  padding: var(--card-pad);
 }
 .event-head h1 {
   margin: 0 0 0.7rem;
@@ -251,7 +254,7 @@ onMounted(load);
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 0.28rem 0.7rem;
+  padding: 0.25rem 0.65rem;
 }
 .chip i {
   color: var(--muted);
@@ -267,7 +270,7 @@ onMounted(load);
   white-space: pre-wrap;
 }
 .map-section {
-  padding: 1rem;
+  padding: var(--card-pad);
 }
 .map-head {
   display: flex;
@@ -284,7 +287,7 @@ onMounted(load);
   font-size: 0.8rem;
 }
 .summary {
-  padding: 1rem;
+  padding: var(--card-pad);
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
@@ -362,7 +365,7 @@ onMounted(load);
 .state {
   text-align: center;
   color: var(--muted);
-  padding: 2rem;
+  padding: var(--state-pad);
   font-size: 0.95rem;
 }
 </style>

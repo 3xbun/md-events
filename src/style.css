@@ -24,6 +24,19 @@
   --shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
   --radius: 14px;
   --font: "IBM Plex Sans Thai", system-ui, sans-serif;
+  /* Spacing scale (rem) */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.25rem;
+  --sp-6: 1.5rem;
+  /* Component rhythm — use these, not raw values */
+  --card-pad: var(--sp-5); /* .card section inner padding (all pages) */
+  --box-pad: var(--sp-3); /* inset panels: bank box, zone box, preview */
+  --row-pad: 0.65rem 0.85rem; /* list rows: event rows, booking rows, event cards */
+  --state-pad: var(--sp-6); /* empty / loading state blocks */
+  --page-gap: var(--sp-5); /* vertical rhythm between page sections */
 }
 
 * {

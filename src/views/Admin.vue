@@ -678,14 +678,14 @@ onMounted(async () => {
 .admin {
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
+  gap: var(--page-gap);
 }
 .page-title {
   margin: 0.2rem 0 0;
   font-size: 1.4rem;
 }
 .card {
-  padding: 1rem;
+  padding: var(--card-pad);
 }
 .pin-card {
   max-width: 360px;
@@ -753,7 +753,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  padding: 0.6rem 0.7rem;
+  padding: var(--row-pad);
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -820,7 +820,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  padding: 0.6rem 0.7rem;
+  padding: var(--row-pad);
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -873,7 +873,7 @@ onMounted(async () => {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 1.1rem;
+  padding: var(--card-pad);
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
@@ -940,7 +940,7 @@ onMounted(async () => {
 .zones-box {
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 0.8rem;
+  padding: var(--box-pad);
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
@@ -949,7 +949,7 @@ onMounted(async () => {
 .front-rows-box {
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 0.8rem;
+  padding: var(--box-pad);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -980,7 +980,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  padding: 0.5rem;
+  padding: var(--sp-2);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1064,7 +1064,7 @@ onMounted(async () => {
 .preview-box {
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 0.8rem;
+  padding: var(--box-pad);
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
@@ -1086,7 +1086,7 @@ onMounted(async () => {
 .state {
   text-align: center;
   color: var(--muted);
-  padding: 1.5rem;
+  padding: var(--state-pad);
   font-size: 0.9rem;
 }
 </style>
