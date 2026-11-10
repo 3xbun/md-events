@@ -11,7 +11,7 @@
       </span>
       <span class="legend-item">
         <i class="fa-solid fa-seat legend-pending"></i>
-        <i class="fa-duotone fa-circle-clock legend-badge badge-pending"></i>
+        <i class="fa-solid fa-clock legend-badge badge-pending"></i>
         {{ t("seat_pending") }}
       </span>
       <span class="legend-item">
@@ -71,7 +71,7 @@
                 ></i>
                 <i
                   v-else-if="seatState(row.letter, c) === 'pending'"
-                  class="fa-duotone fa-solid fa-circle-clock seat-badge badge-pending"
+                  class="fa-solid fa-clock seat-badge badge-pending"
                   aria-hidden="true"
                 ></i>
               </div>
