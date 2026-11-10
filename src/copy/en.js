@@ -32,6 +32,7 @@ export const en = {
   reserved_for: "Reserved for",
   reserved_for_placeholder: "e.g. Staff, VIP (empty = free)",
   zone_color: "Color",
+  preview_map: "Map preview",
   select_seats_hint: "Pick the seats you want",
   max_select_hint: "Up to {count} seats",
   total_seats: "Total seats selected",

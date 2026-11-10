@@ -148,6 +148,25 @@
             {{ t("zones_uncovered", { rows: uncoveredRows }) }}
           </div>
         </div>
+
+        <!-- live seat-map preview (what the customer sees) -->
+        <div class="preview-box">
+          <div class="preview-head">
+            <span class="section-title">
+              <i class="fa-duotone fa-solid fa-eye"></i>
+              {{ t("preview_map") }}
+            </span>
+          </div>
+          <div class="preview-scroll">
+            <SeatGrid
+              :total-rows="Math.max(1, Math.floor(Number(form.TotalRows) || 16))"
+              :max-column="Number(form.MaxColumn) || 26"
+              :front-rows="previewFrontRows"
+              :row-colors="rowColorMap(previewEvent)"
+              :reserved-rows="reservedRowMap(previewEvent)"
+            />
+          </div>
+        </div>
         <div class="field">
           <label>{{ t("status") }}</label>
           <select v-model="form.IsActive">
@@ -266,8 +285,9 @@ import {
   deleteEvent,
 } from "../api/events.js";
 import { listBookingsForEvent, setBookingStatus } from "../api/bookings.js";
-import { formatPriceRange } from "../price.js";
+import { formatPriceRange, rowColorMap, reservedRowMap } from "../price.js";
 import { rowLabel, rowLabelToIndex, totalRowsOf } from "../layout.js";
+import SeatGrid from "../components/SeatGrid.vue";
 const { t } = useI18n();
 
 const unlocked = ref(isUnlocked());
@@ -329,6 +349,40 @@ const uncoveredRows = computed(() => {
   const missing = [];
   for (let i = 0; i < n; i++) if (!covered.has(i)) missing.push(rowLabel(i + 1));
   return missing.length ? missing.join(", ") : "";
+});
+// Live preview: synthesize an event shape from the current form so the same
+// price/seat-map modules render exactly what the customer will see.
+const previewEvent = computed(() => ({
+  id: "preview",
+  fields: {
+    Title: form.Title,
+    Price: Number(form.Price) || 0,
+    TotalRows: Math.max(1, Math.floor(Number(form.TotalRows) || 16)),
+    MaxColumn: Number(form.MaxColumn) || 26,
+    FrontRows: previewFrontRows.value.length
+      ? JSON.stringify(previewFrontRows.value)
+      : null,
+    Zones: form.Zones.length
+      ? JSON.stringify(
+          form.Zones
+            .filter((z) => z.RowFrom && (Number(z.Price) > 0 || String(z.ReservedFor || "").trim()))
+            .map((z) => ({
+              RowFrom: z.RowFrom,
+              RowTo: z.RowTo || z.RowFrom,
+              Price: Number(z.Price) || 0,
+              ...(String(z.Color || "").trim() ? { Color: String(z.Color).trim() } : {}),
+              ...(String(z.ReservedFor || "").trim()
+                ? { ReservedFor: String(z.ReservedFor).trim() }
+                : {}),
+            }))
+        )
+      : null,
+  },
+}));
+const previewFrontRows = computed(() => {
+  const fc = Math.max(0, Math.floor(Number(form.FrontCount) || 0));
+  const fw = Math.max(1, Math.min(52, Math.floor(Number(form.FrontWidth) || 10)));
+  return fc ? Array(Math.min(fc, Math.max(1, Math.floor(Number(form.TotalRows) || fc)))).fill(fw) : [];
 });
 
 // pending/confirmed are the real flow; reserved/paid are legacy (pre-bank
@@ -855,6 +909,28 @@ onMounted(async () => {
   border: 1px solid rgba(212, 160, 23, 0.3);
   border-radius: 8px;
   padding: 0.45rem 0.6rem;
+}
+.preview-box {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  background: var(--surface);
+}
+.preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.preview-head .section-title {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.preview-scroll {
+  overflow-x: auto;
+  padding-bottom: 0.3rem;
 }
 .state {
   text-align: center;
