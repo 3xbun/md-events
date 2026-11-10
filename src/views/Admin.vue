@@ -235,42 +235,91 @@
           {{ t("empty_history") }}
         </div>
         <div v-else class="booking-rows">
-          <div v-for="b in bookings" :key="b.id" class="booking-row">
-            <div class="br-code">{{ b.fields.BookingCode }}</div>
+          <div
+            v-for="b in bookings"
+            :key="b.id"
+            class="booking-row"
+            role="button"
+            tabindex="0"
+            @click="openBooking(b)"
+          >
             <div class="br-info">
               <span class="br-name">{{ b.fields.CustomerName }}</span>
               <span class="br-meta">
-                {{ b.fields._event }} · {{ seatsOf(b) }} ·
-                {{ Number(b.fields.Total) || 0 }} ฿
+                {{ b.fields._event }} · {{ Number(b.fields.Total) || 0 }} ฿
               </span>
             </div>
             <span class="pill" :class="statusPill(b.fields.Status)">
               {{ t(statusKeyOf(b.fields.Status)) }}
             </span>
-            <div class="br-actions">
-              <button
-                v-if="isPending(b.fields.Status)"
-                class="btn btn-sm ok"
-                :disabled="busyId === b.id"
-                @click="confirmBooking(b)"
-              >
-                <i class="fa-duotone fa-solid fa-check"></i>
-                {{ t("confirm_payment") }}
-              </button>
-              <button
-                v-if="isPending(b.fields.Status)"
-                class="btn btn-sm danger"
-                :disabled="busyId === b.id"
-                @click="cancelBooking(b)"
-              >
-                <i class="fa-duotone fa-solid fa-xmark"></i>
-                {{ t("cancel_booking") }}
-              </button>
-            </div>
+            <i class="fa-solid fa-chevron-right br-chev" aria-hidden="true"></i>
           </div>
         </div>
       </section>
     </template>
+
+    <!-- booking detail modal (tap a row to open) -->
+    <div
+      v-if="activeBooking"
+      class="modal-backdrop"
+      @click.self="activeBooking = null"
+    >
+      <div class="modal">
+        <button class="modal-close" aria-label="close" @click="activeBooking = null">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+        <div class="modal-head">
+          <span class="modal-title">{{ activeBooking.fields.CustomerName }}</span>
+          <span class="pill" :class="statusPill(activeBooking.fields.Status)">
+            {{ t(statusKeyOf(activeBooking.fields.Status)) }}
+          </span>
+        </div>
+        <div class="modal-body">
+          <div class="md-row">
+            <span>{{ t("booking_code") }}</span>
+            <b>{{ activeBooking.fields.BookingCode }}</b>
+          </div>
+          <div class="md-row">
+            <span>{{ t("event_name") }}</span>
+            <b>{{ activeBooking.fields._event }}</b>
+          </div>
+          <div class="md-row">
+            <span>{{ t("your_seats") }}</span>
+            <b>{{ seatsOf(activeBooking) }}</b>
+          </div>
+          <div class="md-row">
+            <span>{{ t("amount_due") }}</span>
+            <b>{{ Number(activeBooking.fields.Total) || 0 }} ฿</b>
+          </div>
+          <div v-if="activeBooking.fields.Email" class="md-row">
+            <span>{{ t("email") }}</span>
+            <b>{{ activeBooking.fields.Email }}</b>
+          </div>
+          <div v-if="activeBooking.fields.Phone" class="md-row">
+            <span>{{ t("phone") }}</span>
+            <b>{{ activeBooking.fields.Phone }}</b>
+          </div>
+        </div>
+        <div v-if="isPending(activeBooking.fields.Status)" class="modal-actions">
+          <button
+            class="btn ok"
+            :disabled="busyId === activeBooking.id"
+            @click="confirmBooking(activeBooking)"
+          >
+            <i class="fa-duotone fa-solid fa-check"></i>
+            {{ t("confirm_payment") }}
+          </button>
+          <button
+            class="btn danger"
+            :disabled="busyId === activeBooking.id"
+            @click="cancelBooking(activeBooking)"
+          >
+            <i class="fa-duotone fa-solid fa-xmark"></i>
+            {{ t("cancel_booking") }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -295,6 +344,7 @@ const pin = ref("");
 const pinError = ref(false);
 const events = ref([]);
 const bookings = ref([]);
+const activeBooking = ref(null);
 const editingId = ref(null);
 const saving = ref(false);
 const busyId = ref(null);
@@ -400,6 +450,10 @@ const statusPill = (s) => {
   return "mid"; // pending + legacy reserved
 };
 const isPending = (s) => String(s || "").toLowerCase() === "pending";
+
+function openBooking(b) {
+  activeBooking.value = b;
+}
 
 async function confirmBooking(b) {
   busyId.value = b.id;
@@ -760,12 +814,11 @@ onMounted(async () => {
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 10px;
+  cursor: pointer;
+  user-select: none;
 }
-.br-code {
-  font-family: monospace;
-  font-size: 0.8rem;
-  color: var(--gold);
-  font-weight: 700;
+.booking-row:active {
+  border-color: var(--accent-soft);
 }
 .br-info {
   flex: 1;
@@ -781,6 +834,94 @@ onMounted(async () => {
 .br-meta {
   color: var(--muted);
   font-size: 0.74rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.br-chev {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+/* booking detail modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+}
+.modal {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  box-shadow: var(--shadow);
+}
+.modal-close {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0.3rem;
+}
+.modal-close:hover {
+  color: var(--accent-soft);
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  padding-right: 1.4rem;
+}
+.modal-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.md-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.88rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.45rem;
+}
+.md-row span {
+  color: var(--muted);
+  flex: none;
+}
+.md-row b {
+  text-align: right;
+  word-break: break-word;
+}
+.modal-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+.modal-actions .btn {
+  flex: 1;
 }
 .error {
   color: var(--accent-soft);
