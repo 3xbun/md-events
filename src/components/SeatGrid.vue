@@ -5,10 +5,14 @@
         <i class="fa-solid fa-seat legend-free"></i> {{ t("seat_free") }}
       </span>
       <span class="legend-item">
-        <i class="fa-solid fa-seat legend-selected"></i> {{ t("seat_selected") }}
+        <i class="fa-solid fa-seat legend-sel"></i>
+        <i class="fa-solid fa-check seat-badge legend-badge badge-sel"></i>
+        {{ t("seat_selected") }}
       </span>
       <span class="legend-item">
-        <i class="fa-solid fa-seat legend-pending"></i> {{ t("seat_pending") }}
+        <i class="fa-solid fa-seat legend-pending"></i>
+        <i class="fa-solid fa-clock seat-badge legend-badge badge-pending"></i>
+        {{ t("seat_pending") }}
       </span>
       <span class="legend-item">
         <i class="fa-solid fa-seat legend-confirmed"></i> {{ t("seat_confirmed") }}
@@ -54,6 +58,16 @@
               >
                 <i
                   :class="reservedOf(row.letter) ? 'fa-solid fa-lock' : 'fa-solid fa-seat'"
+                  aria-hidden="true"
+                ></i>
+                <i
+                  v-if="seatState(row.letter, c) === 'selected'"
+                  class="fa-solid fa-check seat-badge badge-sel"
+                  aria-hidden="true"
+                ></i>
+                <i
+                  v-else-if="seatState(row.letter, c) === 'pending'"
+                  class="fa-solid fa-clock seat-badge badge-pending"
                   aria-hidden="true"
                 ></i>
               </div>
@@ -232,15 +246,18 @@ function seatClass(r, c) {
     occupied: st === "confirmed",
   };
 }
-// Free seats are tinted with their row's price-group color (color = price).
-// Reserved rows use their zone color (fallback --reserved).
-// Pending/selected/confirmed keep their fixed state colors from CSS.
+// Free + selected seats are WHITE (icon-coded; the check badge carries the
+// selection state). Reserved rows keep their zone color.
+// Pending/confirmed use their fixed CSS state colors.
 function seatStyle(r, c) {
-  if (seatState(r, c) === "reserved") {
+  const st = seatState(r, c);
+  if (st === "reserved") {
     return { color: reservedOf(r)?.color || "var(--reserved)" };
   }
-  if (seatState(r, c) !== "free") return {};
-  return { color: props.rowColors[r] || "var(--free)" };
+  if (st === "free" || st === "selected") {
+    return { color: "var(--text)" };
+  }
+  return {};
 }
 function onSeat(r, c) {
   // Emit for free (select) and selected (deselect) — the parent toggles.
@@ -363,7 +380,8 @@ function onSeat(r, c) {
 }
 .seat {
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
   aspect-ratio: 1;
   display: flex;
   align-items: center;
@@ -376,27 +394,79 @@ function onSeat(r, c) {
   font-size: 1rem;
   transition: color 0.1s ease;
 }
+/* Icon-coded states: free = white, selected = white + check badge,
+   pending = white + clock badge, confirmed = grey, no overlay. */
+.seat-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  line-height: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  pointer-events: none;
+}
+.badge-sel {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.badge-pending {
+  color: #fff;
+  background: var(--pending);
+  border-color: var(--pending);
+}
+.legend-badge {
+  position: static;
+  flex: none;
+  width: 13px;
+  height: 13px;
+  font-size: 8px;
+}
+.legend-sel {
+  color: var(--text);
+}
+.legend-pending {
+  color: var(--text);
+}
 @media (max-width: 600px) {
   .seat i {
     font-size: 0.55rem;
   }
+  .seat-badge,
+  .legend-badge {
+    width: 10px;
+    height: 10px;
+    font-size: 6px;
+  }
+  .seat-badge {
+    top: -2px;
+    right: -2px;
+  }
 }
 .seat.free {
-  /* color comes from the row's price group (inline style); --free fallback */
+  /* icon-coded: white seat, no overlay (inline style sets the color) */
 }
 .seat.free:hover {
   transform: scale(1.15);
 }
 .seat.selected {
-  color: var(--accent-soft);
-  transform: scale(1.15);
+  /* white seat + red check badge (inline style sets the color) */
 }
 .seat.pending {
-  color: var(--pending);
+  /* white seat + gold clock badge */
+  color: var(--text);
   cursor: not-allowed;
 }
 .seat.confirmed,
 .seat.occupied {
+  /* grey seat, no overlay */
   color: var(--confirmed);
   cursor: not-allowed;
 }
