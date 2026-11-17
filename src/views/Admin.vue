@@ -250,11 +250,11 @@
             <div class="br-info">
               <span class="br-name">{{ b.fields.CustomerName }}</span>
               <span class="br-meta">
-                {{ b.fields._event }} · {{ Number(b.fields.Total) || 0 }} ฿<template
-                  v-if="b.fields.PaidAt"
-                >
-                  · {{ formatPaidAt(b.fields.PaidAt) }}
-                </template>
+                {{ b.fields._event }} · {{ Number(b.fields.Total) || 0 }} ฿
+              </span>
+              <span v-if="b.fields.PaidAt" class="br-paid">
+                <i class="fa-duotone fa-solid fa-calendar-clock"></i>
+                {{ formatPaidAt(b.fields.PaidAt) }}
               </span>
             </div>
             <span class="pill" :class="statusPill(b.fields.Status)">
@@ -299,17 +299,16 @@
             <span>{{ t("amount_due") }}</span>
             <b>{{ Number(activeBooking.fields.Total) || 0 }} ฿</b>
           </div>
-          <div v-if="activeBooking.fields.PaidAt" class="md-row">
-            <span>{{ t("paid_at") }}</span>
+          <div v-if="activeBooking.fields.PaidAt" class="md-row md-row-paid">
+            <span>
+              <i class="fa-duotone fa-solid fa-calendar-clock"></i>
+              {{ t("paid_at") }}
+            </span>
             <b>{{ formatPaidAt(activeBooking.fields.PaidAt) }}</b>
-          </div>
-          <div v-if="activeBooking.fields.Email" class="md-row">
-            <span>{{ t("email") }}</span>
-            <b>{{ activeBooking.fields.Email }}</b>
           </div>
           <div v-if="activeBooking.fields.Phone" class="md-row">
             <span>{{ t("phone") }}</span>
-            <b>{{ activeBooking.fields.Phone }}</b>
+            <b>{{ formatPhone(activeBooking.fields.Phone) || activeBooking.fields.Phone }}</b>
           </div>
         </div>
         <div v-if="isPending(activeBooking.fields.Status)" class="modal-actions">
@@ -349,6 +348,7 @@ import {
   listBookingsForEvent,
   setBookingStatus,
   formatPaidAt,
+  formatPhone,
 } from "../api/bookings.js";
 import { formatPriceRange, rowColorMap, reservedRowMap } from "../price.js";
 import { rowLabel, rowLabelToIndex, totalRowsOf } from "../layout.js";
@@ -860,6 +860,21 @@ onMounted(async () => {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.br-paid {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  align-self: flex-start;
+  margin-top: 0.1rem;
+  color: var(--gold);
+  background: rgba(212, 160, 23, 0.14);
+  border: 1px solid rgba(212, 160, 23, 0.45);
+  border-radius: 6px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  font-family: monospace;
+}
 .br-chev {
   flex: none;
   color: var(--muted);
@@ -937,6 +952,25 @@ onMounted(async () => {
 .md-row b {
   text-align: right;
   word-break: break-word;
+}
+.md-row-paid {
+  background: rgba(212, 160, 23, 0.12);
+  border: 1.5px solid rgba(212, 160, 23, 0.55);
+  border-radius: 9px;
+  padding: 0.5rem 0.65rem;
+}
+.md-row-paid span {
+  color: var(--gold);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.md-row-paid b {
+  color: var(--gold);
+  font-family: monospace;
+  font-size: 1rem;
+  font-weight: 800;
 }
 .modal-actions {
   display: flex;

@@ -35,12 +35,16 @@
           <input v-model.trim="form.name" type="text" autocomplete="name" />
         </div>
         <div class="field">
-          <label>{{ t("email") }}</label>
-          <input v-model.trim="form.email" type="email" autocomplete="email" />
-        </div>
-        <div class="field">
           <label>{{ t("phone") }}</label>
-          <input v-model.trim="form.phone" type="tel" autocomplete="tel" />
+          <input
+            :value="form.phone"
+            type="tel"
+            inputmode="numeric"
+            autocomplete="tel"
+            maxlength="12"
+            placeholder="0xx-xxx-xxxx"
+            @input="onPhoneInput"
+          />
         </div>
 
         <h2 class="section-title">{{ t("payment_method") }}</h2>
@@ -70,9 +74,18 @@
             </button>
           </div>
         </div>
-        <div class="field">
-          <label>{{ t("paid_at") }}</label>
-          <input v-model="form.paidAt" type="datetime-local" required />
+        <div class="paid-at-box">
+          <label class="paid-at-label" for="paid-at-input">
+            <i class="fa-duotone fa-solid fa-calendar-clock"></i>
+            {{ t("paid_at") }}
+          </label>
+          <input
+            id="paid-at-input"
+            v-model="form.paidAt"
+            class="paid-at-input"
+            type="datetime-local"
+            required
+          />
         </div>
         <p class="hint-line">{{ t("bank_transfer_to") }}</p>
         <p class="expire-note">
@@ -101,7 +114,7 @@ import { ref, reactive, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "../i18n.js";
 import { getEvent } from "../api/events.js";
-import { createBooking } from "../api/bookings.js";
+import { createBooking, formatPhone } from "../api/bookings.js";
 import { getSelection, clearSelection } from "../selection.js";
 import { totalForSeats, priceForIndex } from "../price.js";
 import { splitSeat, rowLabelToIndex } from "../layout.js";
@@ -127,10 +140,15 @@ function nowLocalIso() {
 
 const form = reactive({
   name: "",
-  email: "",
   phone: "",
   paidAt: nowLocalIso(),
 });
+
+function onPhoneInput(e) {
+  const formatted = formatPhone(e.target.value);
+  form.phone = formatted;
+  if (e.target.value !== formatted) e.target.value = formatted;
+}
 
 const total = computed(() => totalForSeats(event.value, seats.value));
 
@@ -155,7 +173,8 @@ function copyBank() {
 // Require customer contact (name or phone) + transfer date/time.
 const valid = computed(
   () =>
-    (form.name.trim().length >= 2 || form.phone.trim().length >= 5) &&
+    (form.name.trim().length >= 2 ||
+      form.phone.replace(/\D/g, "").length >= 9) &&
     Boolean(String(form.paidAt || "").trim())
 );
 
@@ -175,8 +194,7 @@ async function pay() {
     const code = `ME-${tail}`;
     await createBooking(event.value.id, {
       CustomerName: form.name,
-      Email: form.email,
-      Phone: form.phone,
+      Phone: formatPhone(form.phone),
       Seats: seats.value,
       SeatCount: seats.value.length,
       Total: total.value,
@@ -342,6 +360,39 @@ onMounted(async () => {
   font-weight: 800;
   letter-spacing: 3px;
   color: var(--text);
+}
+.paid-at-box {
+  background: rgba(212, 160, 23, 0.12);
+  border: 1.5px solid rgba(212, 160, 23, 0.55);
+  border-radius: 10px;
+  padding: var(--box-pad);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.paid-at-label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+.paid-at-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid rgba(212, 160, 23, 0.45);
+  border-radius: 9px;
+  color: var(--text);
+  padding: 0.65rem 0.8rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-family: monospace;
+  color-scheme: dark;
+}
+.paid-at-input:focus {
+  outline: none;
+  border-color: var(--gold);
 }
 .hint-line {
   color: var(--muted);

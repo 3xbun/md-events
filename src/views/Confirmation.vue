@@ -51,8 +51,11 @@
           <span class="muted">{{ t("amount_due") }}</span>
           <span class="total">{{ Number(booking.fields.Total) || 0 }} ฿</span>
         </div>
-        <div v-if="booking.fields.PaidAt" class="detail">
-          <span class="muted">{{ t("paid_at") }}</span>
+        <div v-if="booking.fields.PaidAt" class="detail paid-at-detail">
+          <span class="paid-at-head">
+            <i class="fa-duotone fa-solid fa-calendar-clock"></i>
+            {{ t("paid_at") }}
+          </span>
           <span class="paid-at">{{ formatPaidAt(booking.fields.PaidAt) }}</span>
         </div>
         <div class="detail">
@@ -315,10 +318,26 @@ onBeforeUnmount(stopPoll);
   margin: 0;
   text-align: center;
 }
+.paid-at-detail {
+  background: rgba(212, 160, 23, 0.12);
+  border: 1.5px solid rgba(212, 160, 23, 0.55);
+  border-radius: 10px;
+  padding: var(--box-pad);
+}
+.paid-at-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--gold);
+}
 .paid-at {
   font-family: monospace;
-  font-weight: 600;
-  color: var(--text);
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--gold);
+  letter-spacing: 0.5px;
 }
 .expire-note {
   display: flex;

@@ -187,6 +187,14 @@ export function formatPaidAt(raw) {
   return s.replace("T", " ").slice(0, 16);
 }
 
+/** Format a phone string as xxx-xxx-xxxx (up to 10 digits). */
+export function formatPhone(raw) {
+  const digits = String(raw || "").replace(/\D/g, "").slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
 /** Set a booking's status (e.g. confirm a payment, cancel). */
 export async function setBookingStatus(id, status) {
   await axios.patch(url(), [{ id: Number(id), fields: { Status: status } }], {
