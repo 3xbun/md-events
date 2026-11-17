@@ -37,6 +37,50 @@
           <label>{{ t("venue") }}</label>
           <input v-model.trim="form.Venue" type="text" />
         </div>
+        <div class="poster-box">
+          <div class="poster-box-head">
+            <span class="section-title">
+              <i class="fa-duotone fa-solid fa-image"></i>
+              {{ t("poster") }}
+            </span>
+          </div>
+          <div class="poster-editor">
+            <div class="poster-preview">
+              <img v-if="form.Poster" :src="form.Poster" alt="Poster preview" />
+              <div v-else class="poster-empty">
+                <i class="fa-duotone fa-solid fa-masks-theater"></i>
+                <span>3 : 4</span>
+              </div>
+            </div>
+            <div class="poster-controls">
+              <label class="btn btn-sm poster-upload-btn">
+                <i class="fa-duotone fa-solid fa-upload"></i>
+                {{ t("poster_upload") }}
+                <input
+                  type="file"
+                  accept="image/*"
+                  class="sr-only"
+                  @change="onPosterFile"
+                />
+              </label>
+              <input
+                v-model.trim="form.Poster"
+                type="url"
+                class="poster-url-input"
+                :placeholder="t('poster_url_placeholder')"
+              />
+              <button
+                v-if="form.Poster"
+                type="button"
+                class="btn btn-sm danger"
+                @click="form.Poster = ''"
+              >
+                <i class="fa-duotone fa-solid fa-trash"></i>
+                {{ t("poster_remove") }}
+              </button>
+            </div>
+          </div>
+        </div>
         <div class="grid-2">
           <div class="field">
             <label>{{ t("show_date") }}</label>
@@ -207,6 +251,14 @@
         </div>
         <div v-else class="event-rows">
           <div v-for="ev in events" :key="ev.id" class="event-row">
+            <div class="er-thumb">
+              <img
+                v-if="ev.fields.Poster"
+                :src="ev.fields.Poster"
+                :alt="ev.fields.Title"
+              />
+              <i v-else class="fa-duotone fa-solid fa-masks-theater"></i>
+            </div>
             <div class="er-info">
               <span class="er-name">{{ ev.fields.Title }}</span>
               <span class="er-meta">
@@ -368,6 +420,7 @@ const busyId = ref(null);
 const emptyForm = () => ({
   Title: "",
   Venue: "",
+  Poster: "",
   ShowDate: "",
   StartTime: "",
   Price: 0,
@@ -379,6 +432,44 @@ const emptyForm = () => ({
   FrontWidth: 10,
 });
 const form = reactive(emptyForm());
+
+// Resize + center-crop an uploaded image to 3:4 portrait (max 600x800 JPEG)
+// so it fits cleanly in NocoDB LongText and renders fast on the home page.
+function onPosterFile(e) {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const targetRatio = 3 / 4;
+      const srcRatio = img.width / img.height;
+      let sw = img.width;
+      let sh = img.height;
+      let sx = 0;
+      let sy = 0;
+      if (srcRatio > targetRatio) {
+        sw = Math.round(img.height * targetRatio);
+        sx = Math.round((img.width - sw) / 2);
+      } else if (srcRatio < targetRatio) {
+        sh = Math.round(img.width / targetRatio);
+        sy = Math.round((img.height - sh) / 2);
+      }
+      const maxW = 600;
+      const outW = Math.min(maxW, sw);
+      const outH = Math.round((outW * 4) / 3);
+      const canvas = document.createElement("canvas");
+      canvas.width = outW;
+      canvas.height = outH;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, outW, outH);
+      form.Poster = canvas.toDataURL("image/jpeg", 0.82);
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
 // Row labels for the current TotalRows (A, B, ... Z, AA, AB ...). Drives the
 // MaxRow + zone selectors. Recomputed when TotalRows changes.
 const rowOptions = computed(() => {
@@ -599,6 +690,7 @@ function edit(ev) {
   editingId.value = ev.id;
   form.Title = ev.fields.Title || "";
   form.Venue = ev.fields.Venue || "";
+  form.Poster = ev.fields.Poster || "";
   form.ShowDate = normalizeDate(ev.fields.ShowDate);
   form.StartTime = ev.fields.StartTime || "";
   form.Price = Number(ev.fields.Price) || 0;
@@ -622,6 +714,7 @@ async function save() {
     const fields = {
       Title: form.Title,
       Venue: form.Venue,
+      Poster: String(form.Poster || "").trim() || null,
       ShowDate: form.ShowDate,
       StartTime: form.StartTime,
       Price: Number(form.Price) || 0,
@@ -769,6 +862,26 @@ onMounted(async () => {
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 10px;
+}
+.er-thumb {
+  width: 36px;
+  aspect-ratio: 3 / 4;
+  flex: none;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+.er-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 .er-info {
   flex: 1;
@@ -1000,6 +1113,100 @@ onMounted(async () => {
   flex-direction: column;
   gap: 0.5rem;
   background: var(--surface-2);
+}
+.poster-box {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: var(--box-pad);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  background: var(--surface-2);
+}
+.poster-box-head .section-title {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.poster-editor {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+.poster-preview {
+  width: 108px;
+  aspect-ratio: 3 / 4;
+  flex: none;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.poster-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.poster-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.poster-empty i {
+  font-size: 1.5rem;
+  color: var(--accent);
+  opacity: 0.8;
+}
+.poster-controls {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.poster-upload-btn {
+  cursor: pointer;
+}
+.poster-url-input {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.5rem 0.65rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+.poster-url-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (max-width: 480px) {
+  .poster-preview {
+    width: 90px;
+  }
 }
 .front-rows-box .grid-3 {
   grid-template-columns: 1fr 1fr;
