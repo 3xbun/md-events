@@ -41,6 +41,7 @@ export const th = {
   email: "อีเมล",
   phone: "เบอร์โทรศัพท์",
   payment_method: "วิธีการชำระเงิน",
+  customer_info: "ข้อมูลผู้จอง",
   bank_transfer_note: "กรุณาโอนเงินยอดรวมไปยังบัญชีธนาคารด้านล่าง",
   bank_name_label: "ธนาคาร",
   bank_account_name: "ชื่อบัญชี",

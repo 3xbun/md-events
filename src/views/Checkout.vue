@@ -13,23 +13,12 @@
     <template v-else>
       <h1 class="page-title">{{ t("checkout") }}</h1>
 
-      <section class="card order-summary">
-        <div class="os-row">
-          <span class="muted">{{ t("total_seats") }}</span>
-          <span class="num">{{ seats.length }}</span>
-        </div>
-        <div class="selected-chips">
-          <span v-for="s in seats" :key="s" class="chip-seat">
-            {{ s }}<em>{{ priceForLabel(s) }}</em>
-          </span>
-        </div>
-        <div class="os-row total">
-          <span class="muted">{{ t("total_thb", { count: total }) }}</span>
-          <span class="num price-num">{{ total }} ฿</span>
-        </div>
-      </section>
-
-      <section class="card form-section">
+      <!-- Section 1: customer details -->
+      <section class="card customer-section">
+        <h2 class="section-title">
+          <i class="fa-duotone fa-solid fa-user"></i>
+          {{ t("customer_info") }}
+        </h2>
         <div class="field">
           <label>{{ t("customer_name") }}</label>
           <input v-model.trim="form.name" type="text" autocomplete="name" />
@@ -46,10 +35,32 @@
             @input="onPhoneInput"
           />
         </div>
+      </section>
 
-        <h2 class="section-title">{{ t("payment_method") }}</h2>
-        <p class="bank-note">
+      <!-- Section 2: payment (seat summary + total + bank details) -->
+      <section class="card payment-section">
+        <h2 class="section-title">
           <i class="fa-duotone fa-solid fa-building-columns"></i>
+          {{ t("payment_method") }}
+        </h2>
+
+        <div class="pay-summary">
+          <div class="os-row">
+            <span class="muted">{{ t("total_seats") }}</span>
+            <span class="num">{{ seats.length }}</span>
+          </div>
+          <div class="selected-chips">
+            <span v-for="s in seats" :key="s" class="chip-seat">
+              {{ s }}<em>{{ priceForLabel(s) }}</em>
+            </span>
+          </div>
+          <div class="os-row total">
+            <span class="muted">{{ t("total_thb", { count: total }) }}</span>
+            <span class="num price-num">{{ total }} ฿</span>
+          </div>
+        </div>
+
+        <p class="bank-note">
           {{ t("bank_transfer_note") }}
         </p>
         <div class="bank-box">
@@ -255,10 +266,31 @@ onMounted(async () => {
 .card {
   padding: var(--card-pad);
 }
-.order-summary {
+.customer-section,
+.payment-section {
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 0.9rem;
+}
+.customer-section .section-title,
+.payment-section .section-title {
+  margin: 0;
+  font-size: 1.05rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.customer-section .field:last-child {
+  margin-bottom: 0;
+}
+.pay-summary {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: var(--box-pad);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
 }
 .os-row {
   display: flex;
@@ -301,15 +333,6 @@ onMounted(async () => {
   font-size: 0.68rem;
   color: var(--muted);
   margin-left: 0.35rem;
-}
-.form-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-}
-.form-section .section-title {
-  margin: 0.4rem 0;
-  font-size: 1.05rem;
 }
 .bank-note {
   display: flex;

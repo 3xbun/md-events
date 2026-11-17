@@ -44,6 +44,7 @@ export const en = {
   proceed_payment: "Proceed to payment",
   no_seats_selected: "Please choose at least one seat first",
   checkout: "Payment",
+  customer_info: "Your details",
   customer_name: "Full name",
   email: "Email",
   phone: "Phone number",
