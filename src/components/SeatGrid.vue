@@ -409,7 +409,7 @@ function onSeat(r, c) {
   line-height: 1;
   pointer-events: none;
   z-index: 1;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
 }
 .badge-sel {
   color: var(--accent);
