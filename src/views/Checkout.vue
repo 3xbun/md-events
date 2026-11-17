@@ -284,7 +284,7 @@ onMounted(async () => {
 .chip-seat {
   background: var(--accent-bg);
   color: var(--accent-soft);
-  border: 1px solid rgba(225, 29, 72, 0.4);
+  border: 1px solid var(--accent-border);
   border-radius: 7px;
   padding: 0.2rem 0.55rem;
   font-size: 0.8rem;
@@ -438,9 +438,9 @@ onMounted(async () => {
   display: flex;
   align-items: flex-start;
   gap: 0.45rem;
-  color: var(--accent-soft);
-  background: var(--accent-bg);
-  border: 1px solid rgba(225, 29, 72, 0.35);
+  color: var(--danger);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
   border-radius: 9px;
   padding: 0.55rem 0.7rem;
   font-size: 0.8rem;
@@ -450,7 +450,7 @@ onMounted(async () => {
   margin-top: 0.15rem;
 }
 .error {
-  color: var(--accent-soft);
+  color: var(--danger);
   font-size: 0.85rem;
 }
 .state {

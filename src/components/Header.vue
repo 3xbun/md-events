@@ -84,7 +84,7 @@ const { t } = useI18n();
 }
 .lang-btn.active {
   background: var(--accent);
-  color: #fff;
+  color: #0d1117;
 }
 .admin-link {
   color: var(--muted);

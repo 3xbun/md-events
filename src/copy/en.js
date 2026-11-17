@@ -1,6 +1,6 @@
 // English UI copy for md-events.
 export const en = {
-  app_title: "Seat Reservation",
+  app_title: "Mater Dei Events",
   tagline: "Reserve the seats you want, fast.",
   browse_events: "Browse events",
   events_count: "{count} events available",

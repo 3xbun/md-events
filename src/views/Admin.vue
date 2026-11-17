@@ -820,8 +820,8 @@ onMounted(async () => {
   background: var(--free-bg);
 }
 .danger {
-  color: var(--accent-soft);
-  border-color: rgba(225, 29, 72, 0.4);
+  color: var(--danger);
+  border-color: var(--danger-border);
 }
 .booking-rows {
   display: flex;
@@ -980,7 +980,7 @@ onMounted(async () => {
   flex: 1;
 }
 .error {
-  color: var(--accent-soft);
+  color: var(--danger);
   font-size: 0.85rem;
 }
 .zones-box {

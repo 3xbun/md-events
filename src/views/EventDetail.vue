@@ -315,7 +315,7 @@ onMounted(load);
 .chip-seat {
   background: var(--accent-bg);
   color: var(--accent-soft);
-  border: 1px solid rgba(225, 29, 72, 0.4);
+  border: 1px solid var(--accent-border);
   border-radius: 7px;
   padding: 0.2rem 0.55rem;
   font-size: 0.8rem;

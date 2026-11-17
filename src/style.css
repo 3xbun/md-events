@@ -5,9 +5,13 @@
   --border: #30363d;
   --text: #e6edf3;
   --muted: #8b949e;
-  --accent: #e11d48;
-  --accent-soft: #fb7185;
-  --accent-bg: rgba(225, 29, 72, 0.14);
+  --accent: #38bdf8;
+  --accent-soft: #7dd3fc;
+  --accent-bg: rgba(56, 189, 248, 0.14);
+  --accent-border: rgba(56, 189, 248, 0.4);
+  --danger: #fb7185;
+  --danger-bg: rgba(251, 113, 133, 0.14);
+  --danger-border: rgba(251, 113, 133, 0.35);
   --free: #2ea043;
   --free-bg: rgba(46, 160, 67, 0.16);
   --pending: #e3b341;
@@ -18,8 +22,8 @@
   --occupied-bg: rgba(110, 118, 129, 0.16);
   --reserved: #7c4dff;
   --reserved-bg: rgba(124, 77, 255, 0.18);
-  --selected: #e11d48;
-  --selected-bg: rgba(225, 29, 72, 0.9);
+  --selected: #38bdf8;
+  --selected-bg: rgba(56, 189, 248, 0.9);
   --gold: #d4a017;
   --shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
   --radius: 14px;
@@ -135,11 +139,13 @@ button {
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: #0d1117;
+  font-weight: 700;
 }
 
 .btn-primary:hover {
   background: var(--accent-soft);
+  border-color: var(--accent-soft);
 }
 
 .btn-sm {
