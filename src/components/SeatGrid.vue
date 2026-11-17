@@ -307,7 +307,15 @@ function onSeat(r, c) {
 .legend-occupied {
   color: var(--occupied);
 }
+/* Stage screen: gradient bar via ::before so the label (a real child) sits
+   BELOW the bar with a gap instead of overflowing an 8px-tall box. */
 .screen {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.screen::before {
+  content: "";
   height: 8px;
   border-radius: 6px;
   background: linear-gradient(90deg, transparent, var(--accent-soft), transparent);
@@ -319,7 +327,6 @@ function onSeat(r, c) {
   color: var(--muted);
   letter-spacing: 2px;
   text-transform: uppercase;
-  margin-top: 0.25rem;
   display: block;
 }
 .grid-scroll {
