@@ -16,10 +16,58 @@ const CANCELLED = "cancelled";
 const RESERVED = "reserved";
 const PAID = "paid";
 
+// Pending bookings unpaid after 3 days are auto-rejected and their seats freed.
+export const PAYMENT_EXPIRE_MS = 3 * 24 * 60 * 60 * 1000;
+
+/**
+ * Parse a NocoDB timestamp ("YYYY-MM-DD HH:MM:SS.sss+00:00" or ISO) into epoch ms.
+ */
+function parseCreatedMs(raw) {
+  if (!raw) return NaN;
+  const s = String(raw).trim().replace(" ", "T");
+  return Date.parse(s);
+}
+
+/**
+ * True if a booking is in pending/reserved state and older than 3 days.
+ */
+export function isExpiredPending(rec, now = Date.now()) {
+  const st = String(rec?.fields?.Status || "").toLowerCase();
+  if (st !== PENDING && st !== RESERVED) return false;
+  const created = parseCreatedMs(rec?.fields?.CreatedAt);
+  if (!Number.isFinite(created)) return false;
+  return now - created >= PAYMENT_EXPIRE_MS;
+}
+
+/**
+ * Auto-reject any pending bookings in `recs` that have exceeded the 3-day
+ * payment window: updates their Status to "cancelled" in NocoDB and mutates
+ * the in-memory records so callers immediately see the freed seats.
+ */
+async function expireStaleBookings(recs) {
+  const now = Date.now();
+  const stale = recs.filter((r) => isExpiredPending(r, now));
+  if (!stale.length) return recs;
+  const payload = stale.map((r) => ({
+    id: Number(r.id),
+    fields: { Status: CANCELLED },
+  }));
+  for (const r of stale) {
+    if (r.fields) r.fields.Status = CANCELLED;
+  }
+  try {
+    await axios.patch(url(), payload, { headers: hdrs() });
+  } catch {
+    /* ignore write error; in-memory status still reflects expiry */
+  }
+  return recs;
+}
+
 /**
  * Bookings for one event. A seat is occupied by any non-cancelled booking.
  * Filters on the plain EventId Number column (relation `where` filters
  * silently return zero rows on this NocoDB build — see nocodb skill).
+ * Auto-cancels pending bookings older than 3 days so seats are freed.
  * Returns an array of booking records (v3 shape {id, fields}).
  */
 export async function listBookingsForEvent(eventId) {
@@ -28,7 +76,8 @@ export async function listBookingsForEvent(eventId) {
       params: { where: `(EventId,eq,${Number(eventId)})`, limit: "500" },
       headers: hdrs(),
     });
-    return res.data?.records ?? [];
+    const recs = res.data?.records ?? [];
+    return await expireStaleBookings(recs);
   } catch {
     return [];
   }
@@ -102,6 +151,7 @@ export async function createBooking(eventId, booking) {
         Total: booking.Total,
         Status: booking.Status ?? PENDING,
         CardLast4: booking.CardLast4,
+        PaidAt: booking.PaidAt ?? null,
       },
     },
     { headers: hdrs() }
@@ -125,7 +175,16 @@ export async function findBookingByCode(code) {
     params: { where: `(BookingCode,eq,${JSON.stringify(c)})` },
     headers: hdrs(),
   });
-  return res.data?.records?.[0] ?? null;
+  const recs = res.data?.records ?? [];
+  await expireStaleBookings(recs);
+  return recs[0] ?? null;
+}
+
+/** Format a stored PaidAt ("YYYY-MM-DDTHH:MM" or "YYYY-MM-DD HH:MM") for display. */
+export function formatPaidAt(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  return s.replace("T", " ").slice(0, 16);
 }
 
 /** Set a booking's status (e.g. confirm a payment, cancel). */

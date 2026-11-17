@@ -250,7 +250,11 @@
             <div class="br-info">
               <span class="br-name">{{ b.fields.CustomerName }}</span>
               <span class="br-meta">
-                {{ b.fields._event }} · {{ Number(b.fields.Total) || 0 }} ฿
+                {{ b.fields._event }} · {{ Number(b.fields.Total) || 0 }} ฿<template
+                  v-if="b.fields.PaidAt"
+                >
+                  · {{ formatPaidAt(b.fields.PaidAt) }}
+                </template>
               </span>
             </div>
             <span class="pill" :class="statusPill(b.fields.Status)">
@@ -295,6 +299,10 @@
             <span>{{ t("amount_due") }}</span>
             <b>{{ Number(activeBooking.fields.Total) || 0 }} ฿</b>
           </div>
+          <div v-if="activeBooking.fields.PaidAt" class="md-row">
+            <span>{{ t("paid_at") }}</span>
+            <b>{{ formatPaidAt(activeBooking.fields.PaidAt) }}</b>
+          </div>
           <div v-if="activeBooking.fields.Email" class="md-row">
             <span>{{ t("email") }}</span>
             <b>{{ activeBooking.fields.Email }}</b>
@@ -337,7 +345,11 @@ import {
   updateEvent,
   deleteEvent,
 } from "../api/events.js";
-import { listBookingsForEvent, setBookingStatus } from "../api/bookings.js";
+import {
+  listBookingsForEvent,
+  setBookingStatus,
+  formatPaidAt,
+} from "../api/bookings.js";
 import { formatPriceRange, rowColorMap, reservedRowMap } from "../price.js";
 import { rowLabel, rowLabelToIndex, totalRowsOf } from "../layout.js";
 import SeatGrid from "../components/SeatGrid.vue";

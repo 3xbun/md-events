@@ -49,6 +49,14 @@
           {{ t("bank_transfer_note") }}
         </p>
         <div class="bank-box">
+          <div class="bank-meta-row">
+            <span class="bank-label">{{ t("bank_name_label") }}</span>
+            <span class="bank-val">{{ BANK_NAME }}</span>
+          </div>
+          <div class="bank-meta-row">
+            <span class="bank-label">{{ t("bank_account_name") }}</span>
+            <span class="bank-val">{{ BANK_ACCOUNT_NAME }}</span>
+          </div>
           <div class="bank-label">{{ t("bank_number") }}</div>
           <div class="bank-row">
             <span class="bank-num">{{ BANK_NUMBER }}</span>
@@ -62,7 +70,15 @@
             </button>
           </div>
         </div>
+        <div class="field">
+          <label>{{ t("paid_at") }}</label>
+          <input v-model="form.paidAt" type="datetime-local" required />
+        </div>
         <p class="hint-line">{{ t("bank_transfer_to") }}</p>
+        <p class="expire-note">
+          <i class="fa-duotone fa-solid fa-clock"></i>
+          {{ t("payment_expire_note") }}
+        </p>
 
         <button class="btn btn-primary" :disabled="!valid || paying" @click="pay">
           <i
@@ -99,10 +115,22 @@ const paying = ref(false);
 const error = ref("");
 const bankCopied = ref(false);
 
-// Mock bank number (user-specified; replace with the real one in phase 2).
-const BANK_NUMBER = "000000000";
+const BANK_NAME = "ธนาคารกรุงเทพ";
+const BANK_ACCOUNT_NAME = "โรงเรียนมาแตร์เดอีวิทยาลัย";
+const BANK_NUMBER = "911-019-3464";
 
-const form = reactive({ name: "", email: "", phone: "" });
+function nowLocalIso() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+const form = reactive({
+  name: "",
+  email: "",
+  phone: "",
+  paidAt: nowLocalIso(),
+});
 
 const total = computed(() => totalForSeats(event.value, seats.value));
 
@@ -124,9 +152,12 @@ function copyBank() {
     .catch(() => {});
 }
 
-// The flow only needs the customer's contact to create the pending booking;
-// name or phone is enough to identify and reach the customer.
-const valid = computed(() => form.name.trim().length >= 2 || form.phone.trim().length >= 5);
+// Require customer contact (name or phone) + transfer date/time.
+const valid = computed(
+  () =>
+    (form.name.trim().length >= 2 || form.phone.trim().length >= 5) &&
+    Boolean(String(form.paidAt || "").trim())
+);
 
 function goBack() {
   router.push(`/event/${route.params.id}`);
@@ -151,6 +182,7 @@ async function pay() {
       Total: total.value,
       Status: "pending",
       BookingCode: code,
+      PaidAt: String(form.paidAt || "").trim(),
     });
     clearSelection();
     router.push(`/confirmation/${code}`);
@@ -280,6 +312,20 @@ onMounted(async () => {
   flex-direction: column;
   gap: 0.5rem;
 }
+.bank-meta-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.7rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.4rem;
+}
+.bank-val {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--text);
+  text-align: right;
+}
 .bank-label {
   font-size: 0.8rem;
   color: var(--muted);
@@ -301,6 +347,21 @@ onMounted(async () => {
   color: var(--muted);
   font-size: 0.8rem;
   margin: 0;
+}
+.expire-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  color: var(--accent-soft);
+  background: var(--accent-bg);
+  border: 1px solid rgba(225, 29, 72, 0.35);
+  border-radius: 9px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.8rem;
+  margin: 0;
+}
+.expire-note i {
+  margin-top: 0.15rem;
 }
 .error {
   color: var(--accent-soft);

@@ -49,9 +49,14 @@ export const en = {
   phone: "Phone number",
   payment_method: "Payment method",
   bank_transfer_note: "Please transfer the total amount to the bank account below.",
-  bank_number: "Bank account number",
+  bank_name_label: "Bank",
+  bank_account_name: "Account name",
+  bank_number: "Account number",
   bank_transfer_to:
-    "Transfer the exact amount, then press the button below. Your seats are held while we verify the payment.",
+    "Transfer the exact amount, fill in the transfer date & time, then press the button below. Your seats are held while we verify the payment.",
+  paid_at: "Transfer date & time",
+  payment_expire_note:
+    "If payment is not verified within 3 days, the booking is automatically cancelled and the seats are released.",
   copy_bank: "Copy",
   confirm_transfer: "I have completed the transfer",
   processing: "Creating booking…",

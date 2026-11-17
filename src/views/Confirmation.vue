@@ -51,6 +51,10 @@
           <span class="muted">{{ t("amount_due") }}</span>
           <span class="total">{{ Number(booking.fields.Total) || 0 }} ฿</span>
         </div>
+        <div v-if="booking.fields.PaidAt" class="detail">
+          <span class="muted">{{ t("paid_at") }}</span>
+          <span class="paid-at">{{ formatPaidAt(booking.fields.PaidAt) }}</span>
+        </div>
         <div class="detail">
           <span class="muted">{{ t("status") }}</span>
           <span class="status" :class="statusKey">{{ t(statusKey) }}</span>
@@ -59,6 +63,10 @@
 
       <p v-if="statusKey === 'pending'" class="wait-note">
         {{ t("wait_note") }}
+      </p>
+      <p v-if="statusKey === 'pending'" class="expire-note">
+        <i class="fa-duotone fa-solid fa-clock"></i>
+        {{ t("payment_expire_note") }}
       </p>
 
       <router-link to="/" class="btn btn-primary">
@@ -73,7 +81,12 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "../i18n.js";
-import { findBookingByCode, isConfirmedStatus, isPaidStatus } from "../api/bookings.js";
+import {
+  findBookingByCode,
+  isConfirmedStatus,
+  isPaidStatus,
+  formatPaidAt,
+} from "../api/bookings.js";
 const { t } = useI18n();
 const route = useRoute();
 const booking = ref(null);
@@ -301,5 +314,27 @@ onBeforeUnmount(stopPoll);
   font-size: 0.82rem;
   margin: 0;
   text-align: center;
+}
+.paid-at {
+  font-family: monospace;
+  font-weight: 600;
+  color: var(--text);
+}
+.expire-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  width: 100%;
+  color: var(--accent-soft);
+  background: var(--accent-bg);
+  border: 1px solid rgba(225, 29, 72, 0.35);
+  border-radius: 9px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.8rem;
+  margin: 0;
+  text-align: left;
+}
+.expire-note i {
+  margin-top: 0.15rem;
 }
 </style>
