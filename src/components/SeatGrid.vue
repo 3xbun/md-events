@@ -250,17 +250,15 @@ function seatClass(r, c) {
     occupied: st === "confirmed",
   };
 }
-// Free / selected / pending seats keep the row's zone color (the badge
-// carries the state). Confirmed = grey (CSS). Reserved = zone color.
+// Only FREE seats carry the row's zone color. Everything else (selected,
+// pending, reserved, confirmed) renders grey; state is carried by the badge
+// on top of selected/pending seats.
 function seatStyle(r, c) {
   const st = seatState(r, c);
-  if (st === "reserved") {
-    return { color: reservedOf(r)?.color || "var(--reserved)" };
+  if (st === "free") {
+    return { color: props.rowColors[r] || "var(--free)" };
   }
-  if (st === "confirmed") {
-    return {}; // CSS grey
-  }
-  return { color: props.rowColors[r] || "var(--free)" };
+  return { color: "var(--confirmed)" }; // selected / pending / reserved / confirmed = grey
 }
 function onSeat(r, c) {
   // Emit for free (select) and selected (deselect) — the parent toggles.
