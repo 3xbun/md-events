@@ -282,13 +282,17 @@ onMounted(async () => {
   gap: 0.4rem;
 }
 .chip-seat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
   background: var(--accent-bg);
   color: var(--accent-soft);
   border: 1px solid var(--accent-border);
   border-radius: 7px;
-  padding: 0.2rem 0.55rem;
+  padding: 0.25rem 0.55rem;
   font-size: 0.8rem;
   font-weight: 700;
+  line-height: 1.2;
 }
 .chip-seat em {
   font-style: normal;
