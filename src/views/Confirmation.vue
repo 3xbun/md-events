@@ -228,33 +228,39 @@ onBeforeUnmount(stopPoll);
 }
 .title {
   margin: 0;
-  font-size: 1.4rem;
+  font-size: 1.3rem;
 }
 .note {
   margin: 0;
   color: var(--muted);
-  font-size: 0.92rem;
+  font-size: 0.9rem;
 }
 .code-box {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.45rem;
   align-items: center;
 }
 .code-row {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
+  gap: 0.6rem;
   width: 100%;
   justify-content: center;
+  flex-wrap: wrap;
 }
 .code {
-  font-size: 1.5rem;
+  font-size: clamp(1.15rem, 5vw, 1.45rem);
   font-weight: 800;
-  letter-spacing: 2px;
+  letter-spacing: 1.5px;
   color: var(--gold);
   font-family: monospace;
+  white-space: nowrap;
+}
+.code-row .btn-sm {
+  white-space: nowrap;
+  flex: none;
 }
 .detail-grid {
   width: 100%;
@@ -334,10 +340,10 @@ onBeforeUnmount(stopPoll);
 }
 .paid-at {
   font-family: monospace;
-  font-size: 1.15rem;
+  font-size: 1rem;
   font-weight: 800;
   color: var(--gold);
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
 }
 .expire-note {
   display: flex;

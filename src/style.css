@@ -163,12 +163,15 @@ button {
 .field input,
 .field select {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 9px;
   color: var(--text);
-  padding: 0.65rem 0.8rem;
-  font-size: 0.95rem;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.92rem;
   font-family: inherit;
 }
 

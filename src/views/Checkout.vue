@@ -334,32 +334,41 @@ onMounted(async () => {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.7rem;
+  gap: 0.6rem;
   border-bottom: 1px solid var(--border);
   padding-bottom: 0.4rem;
 }
 .bank-val {
   font-weight: 600;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   color: var(--text);
   text-align: right;
+  min-width: 0;
 }
 .bank-label {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--muted);
+  flex: none;
 }
 .bank-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.7rem;
+  gap: 0.5rem;
+}
+.bank-row .btn-sm {
+  flex: none;
+  white-space: nowrap;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.8rem;
 }
 .bank-num {
   font-family: monospace;
-  font-size: 1.5rem;
+  font-size: clamp(1.05rem, 4.5vw, 1.35rem);
   font-weight: 800;
-  letter-spacing: 3px;
+  letter-spacing: 1px;
   color: var(--text);
+  white-space: nowrap;
 }
 .paid-at-box {
   background: rgba(212, 160, 23, 0.12);
@@ -368,31 +377,57 @@ onMounted(async () => {
   padding: var(--box-pad);
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.4rem;
+  min-width: 0;
+  overflow: hidden;
 }
 .paid-at-label {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  font-size: 0.92rem;
+  gap: 0.4rem;
+  font-size: 0.88rem;
   font-weight: 700;
   color: var(--gold);
 }
 .paid-at-input {
+  display: block;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  appearance: none;
   background: var(--surface);
   border: 1px solid rgba(212, 160, 23, 0.45);
   border-radius: 9px;
   color: var(--text);
-  padding: 0.65rem 0.8rem;
-  font-size: 1.05rem;
-  font-weight: 700;
-  font-family: monospace;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  font-family: var(--font);
   color-scheme: dark;
 }
 .paid-at-input:focus {
   outline: none;
   border-color: var(--gold);
+}
+@media (max-width: 480px) {
+  .page-title {
+    font-size: 1.25rem;
+  }
+  .bank-meta-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+  }
+  .bank-val {
+    text-align: left;
+    font-size: 0.86rem;
+  }
+  .paid-at-input {
+    font-size: 0.88rem;
+    padding: 0.5rem 0.6rem;
+  }
 }
 .hint-line {
   color: var(--muted);
