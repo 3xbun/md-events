@@ -54,15 +54,16 @@
         </p>
         <div class="bank-box">
           <div class="bank-meta-row">
-            <span class="bank-label">{{ t("bank_name_label") }}</span>
-            <span class="bank-val">{{ BANK_NAME }}</span>
-          </div>
-          <div class="bank-meta-row">
             <span class="bank-label">{{ t("bank_account_name") }}</span>
             <span class="bank-val">{{ BANK_ACCOUNT_NAME }}</span>
           </div>
+          <div class="bank-meta-row">
+            <span class="bank-label">{{ t("bank_name_label") }}</span>
+            <span class="bank-val">{{ BANK_NAME }}</span>
+          </div>
           <div class="bank-label">{{ t("bank_number") }}</div>
           <div class="bank-row">
+            <img class="bank-icon" src="/img/bangkok-bank.png" :alt="BANK_NAME" />
             <span class="bank-num">{{ BANK_NUMBER }}</span>
             <button class="btn btn-sm" @click="copyBank">
               <i
@@ -359,6 +360,13 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+}
+.bank-icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: block;
 }
 .bank-row .btn-sm {
   flex: none;
