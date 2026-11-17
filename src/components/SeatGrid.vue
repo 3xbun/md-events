@@ -5,12 +5,10 @@
         <i class="fa-solid fa-seat legend-free"></i> {{ t("seat_free") }}
       </span>
       <span class="legend-item">
-        <i class="fa-solid fa-seat legend-sel"></i>
         <i class="fa-solid fa-circle-check legend-badge badge-sel"></i>
         {{ t("seat_selected") }}
       </span>
       <span class="legend-item">
-        <i class="fa-solid fa-seat legend-pending"></i>
         <i class="fa-solid fa-clock legend-badge badge-pending"></i>
         {{ t("seat_pending") }}
       </span>
@@ -250,15 +248,18 @@ function seatClass(r, c) {
     occupied: st === "confirmed",
   };
 }
-// Only FREE seats carry the row's zone color. Everything else (selected,
-// pending, reserved, confirmed) renders grey; state is carried by the badge
-// on top of selected/pending seats.
+// Free seats carry the row's zone color; selected / pending / confirmed
+// render grey (badge carries the state). Reserved rows KEEP their zone
+// color — the lock glyph marks them, grey would erase the zone identity.
 function seatStyle(r, c) {
   const st = seatState(r, c);
   if (st === "free") {
     return { color: props.rowColors[r] || "var(--free)" };
   }
-  return { color: "var(--confirmed)" }; // selected / pending / reserved / confirmed = grey
+  if (st === "reserved") {
+    return { color: reservedOf(r)?.color || "var(--reserved)" };
+  }
+  return { color: "var(--confirmed)" }; // selected / pending / confirmed = grey
 }
 function onSeat(r, c) {
   // Emit for free (select) and selected (deselect) — the parent toggles.
