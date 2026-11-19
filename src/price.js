@@ -115,8 +115,13 @@ export function parseBundles(event) {
       .filter((s) => splitSeat(s));
     const price = Number(b?.Price ?? b?.price ?? 0);
     if (seats.length < 2 || !price || price <= 0) continue;
-    // de-dup seats within one bundle
-    const uniq = [...new Set(seats)];
+    // de-dup + order seats (row, then column) — the first seat carries the
+    // multi-seat glyph on the map
+    const uniq = [...new Set(seats)].sort((a, b) => {
+      const pa = splitSeat(a);
+      const pb = splitSeat(b);
+      return rowLabelToIndex(pa.row) - rowLabelToIndex(pb.row) || pa.col - pb.col;
+    });
     if (uniq.length < 2) continue;
     out.push({ seats: uniq, price });
   }

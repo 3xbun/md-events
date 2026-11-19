@@ -267,9 +267,16 @@ function seatIcon(r, c) {
   const st = seatState(r, c);
   if (st === "reserved") return "fa-duotone fa-solid fa-lock";
   if (st === "locked") return "fa-solid fa-clock";
-  // bundled seats show the multi-seat glyph instead of a single chair
-  if (props.bundleSeats?.[seatLabel(r, c)]) return "fa-solid fa-seats";
+  // A bundle shows ONE multi-seat glyph on its first member; the other member
+  // cells hide their chair icon (class .bundle-ghost) so the pair doesn't
+  // read as 4 seats.
+  const b = props.bundleSeats?.[seatLabel(r, c)];
+  if (b && b.seats[0] === seatLabel(r, c)) return "fa-solid fa-seats";
   return "fa-solid fa-seat";
+}
+function isBundleGhost(r, c) {
+  const b = props.bundleSeats?.[seatLabel(r, c)];
+  return Boolean(b) && b.seats[0] !== seatLabel(r, c);
 }
 function seatEnabled(r, c) {
   if (props.adminMode) return true; // paint mode: every seat is tappable
@@ -288,6 +295,7 @@ function seatClass(r, c) {
     reserved: st === "reserved",
     locked: st === "locked",
     bundled: st === "free" && Boolean(props.bundleSeats?.[seatLabel(r, c)]),
+    "bundle-ghost": isBundleGhost(r, c),
     occupied: st === "confirmed",
   };
 }
@@ -533,6 +541,12 @@ function onSeat(r, c) {
 .seat.locked {
   cursor: not-allowed;
   opacity: 0.85;
+}
+/* A bundle renders ONE fa-seats glyph on its first member; the other member
+   cells stay clickable (badges still show) but hide their own chair icon so
+   the pair doesn't read as 4 seats. */
+.seat.bundle-ghost > i:first-child {
+  visibility: hidden;
 }
 .row-label-reserved {
   font-size: 0.55rem;
