@@ -11,7 +11,7 @@
 // Any number of zones is allowed; the admin defines them per event.
 // If an event has no (valid) zones, every seat falls back to `Price`.
 
-import { rowLabel, rowLabelToIndex, totalRowsOf, splitSeat } from "./layout.js";
+import { rowLabel, rowLabelToIndex, totalRowsOf, splitSeat, frontRowsOf } from "./layout.js";
 
 /** Price-group palette (dark-theme friendly; avoids the pink/selected and
  *  grey/occupied hues). Assigned in row order, front row first. */
@@ -25,11 +25,12 @@ export const ZONE_PALETTE = [
 ];
 
 /** Parse the Zones field into index ranges
- *  [{fi,ti,from,to,price,color,reserved}], front-first.
- *  A zone may carry an explicit `Color` (hex, admin-set) and a `ReservedFor`
+ *  [{fi,ti,from,to,price,color,reserved,sale}], front-first.
+ *  A zone may carry an explicit `Color` (hex, admin-set), a `ReservedFor`
  *  label (e.g. "Staff", "VIP") — rows in a reserved zone are locked out of
- *  customer booking. Zones with ReservedFor should not carry a Price (they
- *  are not purchasable). */
+ *  customer booking — and a `SaleStarts` local datetime string
+ *  ("YYYY-MM-DDTHH:MM", rows in the zone open for sale at that time).
+ *  Zones with ReservedFor should not carry a Price (they are not purchasable). */
 export function parseZones(event) {
   const raw = event?.fields?.Zones;
   let z = raw;
@@ -48,6 +49,7 @@ export function parseZones(event) {
     const price = Number(entry.Price ?? entry.price ?? 0);
     const reserved = String(entry.ReservedFor ?? entry.reservedFor ?? "").trim();
     const color = String(entry.Color ?? entry.color ?? "").trim();
+    const sale = String(entry.SaleStarts ?? entry.saleStarts ?? "").trim();
     let fi = rowLabelToIndex(from) - 1;
     let ti = rowLabelToIndex(to) - 1;
     if (fi < 0) continue;
@@ -56,10 +58,121 @@ export function parseZones(event) {
       ti = ti < fi ? fi : ti;
     }
     if (ti < fi) ti = fi; // single-row zone
-    out.push({ fi, ti, from, to, price, color, reserved });
+    out.push({ fi, ti, from, to, price, color, reserved, sale });
   }
   // sort by first row for stable display
   return out.sort((a, b) => a.fi - b.fi);
+}
+
+// ── Per-seat rules (overrides + bundles) ──────────────────────────────
+//
+// `SeatOverrides` (LongText, JSON object keyed by seat label):
+//   {"A8":{"Price":700,"SaleStarts":"2026-12-01T09:00"}, "A16":{"Price":700}}
+// A seat's price override beats its row zone; a seat's SaleStarts override
+// beats the row zone's SaleStarts.
+//
+// `Bundles` (LongText, JSON array):
+//   [{"Seats":["A8","A9"],"Price":1000}]
+// Clicking one seat of a bundle selects both; the pair is sold as ONE unit
+// at the bundle price (separate from the individual seat prices).
+
+function parseJsonField(raw) {
+  let v = raw;
+  if (typeof raw === "string") {
+    try {
+      v = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  return v;
+}
+
+/** Seat label -> {price, sale} override map (cleaned, uppercased). */
+export function parseOverrides(event) {
+  const v = parseJsonField(event?.fields?.SeatOverrides);
+  const out = {};
+  if (!v || typeof v !== "object" || Array.isArray(v)) return out;
+  for (const [k, entry] of Object.entries(v)) {
+    const seat = String(k).toUpperCase();
+    if (!splitSeat(seat)) continue;
+    const price = Number(entry?.Price ?? entry?.price ?? 0);
+    const sale = String(entry?.SaleStarts ?? entry?.saleStarts ?? "").trim();
+    if ((!price || price <= 0) && !sale) continue;
+    out[seat] = { price: price > 0 ? price : 0, sale };
+  }
+  return out;
+}
+
+/** Clean bundle array [{seats:["A8","A9"], price:Number}] from the Bundles field. */
+export function parseBundles(event) {
+  const v = parseJsonField(event?.fields?.Bundles);
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const b of v) {
+    const seats = (Array.isArray(b?.Seats ?? b?.seats) ? b.Seats ?? b.seats : [])
+      .map((s) => String(s).toUpperCase())
+      .filter((s) => splitSeat(s));
+    const price = Number(b?.Price ?? b?.price ?? 0);
+    if (seats.length < 2 || !price || price <= 0) continue;
+    // de-dup seats within one bundle
+    const uniq = [...new Set(seats)];
+    if (uniq.length < 2) continue;
+    out.push({ seats: uniq, price });
+  }
+  return out;
+}
+
+/** Seat label -> bundle index map. First bundle claiming a seat wins; a seat
+ *  may belong to at most ONE bundle (conflicts dropped at parse level). */
+export function bundleForSeatMap(event) {
+  const map = {};
+  for (let i = 0; i < parseBundles(event).length; i++) {
+    const b = parseBundles(event)[i];
+    for (const s of b.seats) if (!(s in map)) map[s] = i;
+  }
+  return map;
+}
+
+/** The bundle (with seats) a seat belongs to, or null. */
+export function bundleForSeat(event, label) {
+  const seat = String(label || "").toUpperCase();
+  const bundles = parseBundles(event);
+  for (const b of bundles) if (b.seats.includes(seat)) return b;
+  return null;
+}
+
+/** Effective per-seat price: seat override -> row zone -> base Price. */
+export function seatPrice(event, label) {
+  const p = splitSeat(String(label || "").toUpperCase());
+  if (!p) return Number(event?.fields?.Price) || 0;
+  const o = parseOverrides(event)[`${p.row}${p.col}`];
+  if (o && o.price > 0) return o.price;
+  return priceForIndex(event, rowLabelToIndex(p.row) - 1);
+}
+
+/** Effective sale-start for a seat: seat override -> row zone -> "" (open now). */
+export function seatSaleStart(event, label) {
+  const p = splitSeat(String(label || "").toUpperCase());
+  if (!p) return "";
+  const seat = `${p.row}${p.col}`;
+  const o = parseOverrides(event)[seat];
+  if (o && o.sale) return o.sale;
+  const idx = rowLabelToIndex(p.row) - 1;
+  for (const z of parseZones(event)) {
+    if (z.sale && !z.reserved && idx >= z.fi && idx <= z.ti) return z.sale;
+  }
+  return "";
+}
+
+/** True if the seat is NOT yet on sale (future SaleStarts). Invalid/empty
+ *  dates count as on-sale. Compared in the customer's local time. */
+export function seatNotYetOnSale(event, label, now = Date.now()) {
+  const s = seatSaleStart(event, label);
+  if (!s) return false;
+  const t = Date.parse(s);
+  if (!Number.isFinite(t)) return false;
+  return now < t;
 }
 
 /** Reserved zone (if any) covering a 0-based row index: {reserved, color} or null.
@@ -105,24 +218,43 @@ export function priceForRow(event, rowLetter) {
   return priceForIndex(event, rowLabelToIndex(rowLetter) - 1);
 }
 
-/** Total for a set of seat labels (["A1","B2"]) — sums each seat's row price. */
+/** Total for a set of seat labels (["A1","B2"]).
+ *  - Seats in a bundle count as ONE unit at the bundle price (only if the
+ *    whole bundle is selected; a partial bundle can't happen via the UI, but
+ *    stray singles price individually).
+ *  - Other seats use seatPrice (per-seat override -> row zone -> base). */
 export function totalForSeats(event, seats) {
-  return seats.reduce((sum, label) => {
-    const p = splitSeat(label);
-    if (!p) return sum;
-    return sum + priceForIndex(event, rowLabelToIndex(p.row) - 1);
-  }, 0);
+  const bundles = parseBundles(event);
+  const sel = new Set(seats.map((s) => String(s).toUpperCase()));
+  const inBundle = new Set();
+  let total = 0;
+  for (const b of bundles) {
+    if (b.seats.every((s) => sel.has(s))) {
+      total += b.price;
+      b.seats.forEach((s) => inBundle.add(s));
+    }
+  }
+  for (const s of seats) {
+    const up = String(s).toUpperCase();
+    if (inBundle.has(up)) continue;
+    total += seatPrice(event, up);
+  }
+  return total;
 }
 
 /** {min,max} price across the rows that actually exist (0..totalRows-1),
  *  so uncovered rows fall back to the base Price in the range too.
- *  Reserved rows are excluded (not purchasable). */
+ *  Reserved rows are excluded (not purchasable). Per-seat price overrides
+ *  widen the range as well (e.g. A8–A16 premium seats). */
 export function priceRange(event) {
   const total = totalRowsOf(event);
   const prices = [];
   for (let i = 0; i < total; i++) {
     if (reservedZoneForIndex(event, i)) continue;
     prices.push(priceForIndex(event, i));
+  }
+  for (const o of Object.values(parseOverrides(event))) {
+    if (o.price > 0) prices.push(o.price);
   }
   if (!prices.length) return { min: 0, max: 0 };
   return { min: Math.min(...prices), max: Math.max(...prices) };
@@ -186,11 +318,43 @@ export function priceGroups(event) {
   return groups;
 }
 
-/** Row-LABEL -> color map for the seat map (from priceGroups). */
+/** Row-LABEL -> color map for the seat map (from priceGroups), PLUS a color
+ *  for every seat that carries a price override (premium seats stand out from
+ *  their row; distinct override prices get successive palette colors). */
 export function rowColorMap(event) {
   const map = {};
   for (const g of priceGroups(event)) {
     for (let i = g.fi; i <= g.ti; i++) map[rowLabel(i + 1)] = g.color;
   }
+  // per-seat price overrides -> their own color (keyed by seat label, which
+  // SeatGrid checks before the row color)
+  const colorByPrice = new Map();
+  let next = priceGroups(event).length;
+  for (const [seat, o] of Object.entries(parseOverrides(event))) {
+    if (!(o.price > 0)) continue;
+    if (!colorByPrice.has(o.price)) {
+      colorByPrice.set(o.price, ZONE_PALETTE[next++ % ZONE_PALETTE.length]);
+    }
+    map[seat] = colorByPrice.get(o.price);
+  }
   return map;
+}
+
+/** Seat label -> sale-start string for seats whose effective sale-start is in
+ *  the FUTURE (not on sale yet). Reserved seats are excluded (already locked). */
+export function lockedSaleSeats(event, now = Date.now()) {
+  const out = {};
+  const total = totalRowsOf(event);
+  const fr = frontRowsOf(event);
+  const maxCol = Math.max(1, Math.min(52, Math.floor(event?.fields?.MaxColumn || 26)));
+  for (let i = 0; i < total; i++) {
+    if (reservedZoneForIndex(event, i)) continue;
+    const width = i < fr.length ? fr[i] : maxCol;
+    const label = rowLabel(i + 1);
+    for (let c = 1; c <= width; c++) {
+      const seat = `${label}${c}`;
+      if (seatNotYetOnSale(event, seat, now)) out[seat] = seatSaleStart(event, seat);
+    }
+  }
+  return out;
 }

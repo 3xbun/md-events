@@ -19,6 +19,14 @@
         <i class="fa-solid fa-lock legend-reserved"></i>
         {{ reservedLegend }}
       </span>
+      <span v-if="hasLocked" class="legend-item">
+        <i class="fa-solid fa-clock legend-locked"></i>
+        {{ t("seat_not_on_sale") }}
+      </span>
+      <span v-if="hasBundles" class="legend-item">
+        <i class="fa-solid fa-link legend-bundle"></i>
+        {{ t("seat_bundle") }}
+      </span>
     </div>
     <div class="grid-scroll">
       <div v-if="!rows.length" class="grid-empty"></div>
@@ -51,13 +59,12 @@
                 :style="seatStyle(row.letter, c)"
                 role="button"
                 :aria-label="seatLabel(row.letter, c)"
+                :title="seatTitle(row.letter, c)"
                 :tabindex="seatEnabled(row.letter, c) ? 0 : -1"
                 @click="onSeat(row.letter, c)"
               >
                 <i
-                  :class="reservedOf(row.letter)
-                    ? 'fa-duotone fa-solid fa-lock'
-                    : 'fa-solid fa-seat'"
+                  :class="seatIcon(row.letter, c)"
                   aria-hidden="true"
                 ></i>
                 <i
@@ -71,6 +78,11 @@
                   v-else-if="seatState(row.letter, c) === 'pending'"
                   class="fa-solid fa-clock seat-badge badge-pending"
                   aria-hidden="true"
+                ></i>
+                <i
+                  v-else-if="bundleAnchorOf(seatLabel(row.letter, c))"
+                  class="fa-solid fa-link seat-badge badge-bundle"
+                  :aria-label="t('seat_bundle')"
                 ></i>
               </div>
             </template>
@@ -104,12 +116,22 @@ const props = defineProps({
   // seat label -> "pending" | "confirmed" for seats already reserved by a
   // booking (payment awaiting admin confirmation, or confirmed).
   seatStates: { type: Object, default: () => ({}) },
-  // row-label -> color map for price-group coloring of free seats
+  // row-label -> color map for price-group coloring of free seats (seat-level
+  // labels for price overrides take precedence over their row's color)
   rowColors: { type: Object, default: () => ({}) },
   // row-label -> {reserved, color} map for RESERVED rows (locked from
   // customer booking: staff/VIP rows). Rows in this map render a lock icon,
   // are unclickable, and ignore occupied/selected state.
   reservedRows: { type: Object, default: () => ({}) },
+  // seat-label -> true for seats NOT YET ON SALE (staggered release). They
+  // render a clock icon, tinted with their zone color, and are unclickable.
+  lockedSeats: { type: Object, default: () => ({}) },
+  // seat-label -> {seats, price, anchor} bundle membership. `anchor` seats
+  // carry a small link badge; clicking ANY member seat selects the whole set.
+  bundleSeats: { type: Object, default: () => ({}) },
+  // Admin paint mode: every seat is tappable (even reserved/locked/occupied)
+  // and clicks emit single seats — used by the seat-rules editor.
+  adminMode: { type: Boolean, default: false },
 });
 const emit = defineEmits(["select"]);
 
@@ -218,10 +240,28 @@ function rowLabelStyle(row) {
   return { color: props.rowColors[row.letter] || undefined };
 }
 const hasReserved = computed(() => Object.keys(props.reservedRows).length > 0);
+const hasLocked = computed(() => Object.keys(props.lockedSeats || {}).length > 0);
+const hasBundles = computed(() => Object.keys(props.bundleSeats || {}).length > 0);
+function bundleAnchorOf(label) {
+  const b = props.bundleSeats?.[label];
+  return b && b.anchor ? b : null;
+}
 const reservedLegend = computed(() => {
   const labels = [...new Set(Object.values(props.reservedRows).map((z) => z.reserved))];
   return labels.length ? labels.join(" · ") : t("seat_reserved");
 });
+function lockedOf(label) {
+  return Boolean(props.lockedSeats?.[label]);
+}
+function seatTitle(r, c) {
+  const label = seatLabel(r, c);
+  const bits = [];
+  const lock = props.lockedSeats?.[label];
+  if (lock) bits.push(`${t("sale_starts_short")} ${lock.replace("T", " ")}`);
+  const b = props.bundleSeats?.[label];
+  if (b) bits.push(`${t("seat_bundle")} ${b.seats.join("+")} ${b.price} ฿`);
+  return bits.join(" · ");
+}
 function seatState(r, c) {
   if (reservedOf(r)) return "reserved";
   const label = seatLabel(r, c);
@@ -229,11 +269,19 @@ function seatState(r, c) {
   const st = stateMap.value[label];
   if (st === "pending" || st === "confirmed") return st;
   if (occSet.value.has(label)) return "confirmed"; // taken (legacy/other)
+  if (lockedOf(label)) return "locked"; // not on sale yet
   return "free";
 }
+function seatIcon(r, c) {
+  const st = seatState(r, c);
+  if (st === "reserved") return "fa-duotone fa-solid fa-lock";
+  if (st === "locked") return "fa-solid fa-clock";
+  return "fa-solid fa-seat";
+}
 function seatEnabled(r, c) {
-  // Tappable = free (select) or selected (deselect); reserved/occupied/pending
-  // are not.
+  if (props.adminMode) return true; // paint mode: every seat is tappable
+  // Tappable = free (select) or selected (deselect); reserved/occupied/pending/
+  // locked-not-yet-on-sale are not.
   const st = seatState(r, c);
   return st === "free" || st === "selected";
 }
@@ -245,28 +293,49 @@ function seatClass(r, c) {
     pending: st === "pending",
     confirmed: st === "confirmed",
     reserved: st === "reserved",
+    locked: st === "locked",
+    bundled: st === "free" && Boolean(props.bundleSeats?.[seatLabel(r, c)]),
     occupied: st === "confirmed",
   };
 }
-// Free seats carry the row's zone color; selected / pending / confirmed
-// render grey (badge carries the state). Reserved rows KEEP their zone
-// color — the lock glyph marks them, grey would erase the zone identity.
+// Free seats carry the row's zone color (seat-level override color wins);
+// selected / pending / confirmed render grey (badge carries the state).
+// Reserved rows KEEP their zone color — the lock glyph marks them, grey would
+// erase the zone identity. Locked (not-on-sale) seats also keep their zone
+// color — the clock glyph marks them.
 function seatStyle(r, c) {
   const st = seatState(r, c);
+  const label = seatLabel(r, c);
   if (st === "free") {
-    return { color: props.rowColors[r] || "var(--free)" };
+    return { color: props.rowColors[label] || props.rowColors[r] || "var(--free)" };
   }
   if (st === "reserved") {
     return { color: reservedOf(r)?.color || "var(--reserved)" };
   }
+  if (st === "locked") {
+    return { color: props.rowColors[label] || props.rowColors[r] || "var(--free)" };
+  }
   return { color: "var(--confirmed)" }; // selected / pending / confirmed = grey
 }
 function onSeat(r, c) {
+  // Admin paint mode: emit the raw seat label for EVERY state (the seat-rules
+  // editor decides what to do).
+  if (props.adminMode) {
+    emit("select", seatLabel(r, c));
+    return;
+  }
   // Emit for free (select) and selected (deselect) — the parent toggles.
-  // Pending/confirmed/reserved are not tappable.
+  // When the seat belongs to a BUNDLE, emit the whole set and whether this is
+  // an add or a remove (parent adds/removes all bundle members together).
   const st = seatState(r, c);
   if (st !== "free" && st !== "selected") return;
-  emit("select", seatLabel(r, c));
+  const label = seatLabel(r, c);
+  const b = props.bundleSeats?.[label];
+  if (b) {
+    emit("select", { seats: [...b.seats], remove: st === "selected" });
+    return;
+  }
+  emit("select", { seats: [label], remove: st === "selected" });
 }
 </script>
 
@@ -303,6 +372,12 @@ function onSeat(r, c) {
 }
 .legend-reserved {
   color: var(--muted);
+}
+.legend-locked {
+  color: var(--muted);
+}
+.legend-bundle {
+  color: var(--accent-soft);
 }
 .legend-occupied {
   color: var(--occupied);
@@ -425,6 +500,10 @@ function onSeat(r, c) {
 .badge-pending {
   color: var(--pending);
 }
+.badge-bundle {
+  color: var(--accent-soft);
+  pointer-events: none;
+}
 .legend-badge {
   flex: none;
   font-size: 13px;
@@ -461,6 +540,10 @@ function onSeat(r, c) {
 }
 .seat.reserved {
   cursor: not-allowed;
+}
+.seat.locked {
+  cursor: not-allowed;
+  opacity: 0.85;
 }
 .row-label-reserved {
   font-size: 0.55rem;

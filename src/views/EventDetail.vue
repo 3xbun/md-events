@@ -68,7 +68,9 @@
           :selected="selected"
           :row-colors="rowColors"
           :reserved-rows="reservedRowMap(event)"
-          @select="toggleSeat"
+          :locked-seats="lockedSeats"
+          :bundle-seats="bundleSeats"
+          @select="onGridSelect"
         />
       </section>
 
@@ -82,8 +84,8 @@
           <span class="num price-num">{{ totalThb }} ฿</span>
         </div>
         <div class="selected-chips">
-          <span v-for="s in selected" :key="s" class="chip-seat">
-            {{ s }}<em>{{ priceForLabel(s) }}</em>
+          <span v-for="g in chipGroups" :key="g.label" class="chip-seat">
+            {{ g.label }}<em>{{ g.price }}</em>
           </span>
           <button class="btn btn-sm clear-sel" @click="selected = []">
             <i class="fa-duotone fa-solid fa-xmark"></i>
@@ -105,7 +107,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "../i18n.js";
 import { getEvent } from "../api/events.js";
@@ -115,13 +117,15 @@ import {
   priceGroups,
   rowColorMap,
   totalForSeats,
-  priceForIndex,
   formatPriceRange,
   zoneLabel,
   parseZones,
   reservedRowMap,
+  seatPrice,
+  parseBundles,
+  lockedSaleSeats,
 } from "../price.js";
-import { frontRowsOf, totalRowsOf, splitSeat, rowLabelToIndex } from "../layout.js";
+import { frontRowsOf, totalRowsOf, splitSeat } from "../layout.js";
 import SeatGrid from "../components/SeatGrid.vue";
 const { t } = useI18n();
 const route = useRoute();
@@ -133,6 +137,26 @@ const occupied = ref([]);
 const seatStates = ref({});
 const selected = ref([]);
 const MAX_SELECT = 8;
+// Tick so "not on sale yet" flips at the sale time without a reload.
+const nowTick = ref(Date.now());
+let tickTimer = null;
+
+// Seats blocked by a staggered sale date (clock icon, unclickable).
+const lockedSeats = computed(() =>
+  event.value ? lockedSaleSeats(event.value, nowTick.value) : {}
+);
+// seat label -> {seats, price, anchor} for the bundle-pairing badges/clicks.
+const bundleSeats = computed(() => {
+  const map = {};
+  if (!event.value) return map;
+  const bundles = parseBundles(event.value);
+  bundles.forEach((b, i) => {
+    b.seats.forEach((s, j) => {
+      if (!(s in map)) map[s] = { seats: b.seats, price: b.price, anchor: j === 0 };
+    });
+  });
+  return map;
+});
 
 // Distinct price groups (consecutive same-price rows merged) drive the seat
 // map colors + legend. Color encodes price, so same-price rows share a hue.
@@ -159,18 +183,47 @@ const totalThb = computed(() => totalForSeats(event.value, selected.value));
 function fmtDate(ev) {
   return String(ev.fields.ShowDate || "").slice(0, 10);
 }
-function priceForLabel(label) {
-  const p = splitSeat(label);
-  return `${p ? priceForIndex(event.value, rowLabelToIndex(p.row) - 1) : 0} ฿`;
-}
-function toggleSeat(label) {
-  const i = selected.value.indexOf(label);
-  if (i >= 0) {
-    selected.value.splice(i, 1);
-  } else if (selected.value.length < MAX_SELECT) {
-    selected.value.push(label);
+
+// Chips for the summary: full bundles collapse into one chip ("A8 + A9 · 1000฿"
+// as ONE unit); everything else is a per-seat chip at its effective price.
+const chipGroups = computed(() => {
+  const groups = [];
+  const used = new Set();
+  for (const b of parseBundles(event.value)) {
+    if (b.seats.every((s) => selected.value.includes(s))) {
+      groups.push({ label: b.seats.join(" + "), price: `${b.price} ฿`, bundle: true });
+      b.seats.forEach((s) => used.add(s));
+    }
   }
+  for (const s of selected.value) {
+    if (used.has(s)) continue;
+    groups.push({ label: s, price: `${seatPrice(event.value, s)} ฿`, bundle: false });
+  }
+  return groups;
+});
+
+function fmtSaleStart(s) {
+  // "2026-12-01T09:00" -> "01 Dec 09:00" (light, locale-free)
+  const m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (!m) return s;
+  return `${m[3]} ${m[2]} ${m[4]}:${m[5]}`;
 }
+function onGridSelect(payload) {
+  // payload: { seats: [...], remove: bool } — a bundle emits all its seats.
+  const { seats, remove } = payload;
+  if (remove) {
+    selected.value = selected.value.filter((s) => !seats.includes(s));
+    return;
+  }
+  const next = [...selected.value];
+  for (const s of seats) {
+    if (next.includes(s)) continue;
+    if (next.length >= MAX_SELECT) break;
+    next.push(s);
+  }
+  selected.value = next;
+}
+// Legacy single-seat toggle kept out; SeatGrid now always emits {seats,remove}.
 function goBack() {
   if (history.length > 1) router.back();
   else router.push("/");
@@ -210,7 +263,14 @@ async function load() {
 watch(() => route.params.id, (nv, ov) => {
   if (nv && nv !== ov) load();
 });
-onMounted(load);
+onMounted(() => {
+  load();
+  // Re-evaluate "not on sale yet" every 30s so seats unlock live.
+  tickTimer = setInterval(() => (nowTick.value = Date.now()), 30000);
+});
+onBeforeUnmount(() => {
+  if (tickTimer) clearInterval(tickTimer);
+});
 </script>
 
 <style scoped>

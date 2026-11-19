@@ -184,6 +184,12 @@
                 :title="t('zone_color')"
               />
               <input
+                v-model="z.SaleStarts"
+                type="datetime-local"
+                class="zone-sale"
+                :title="t('sale_starts')"
+              />
+              <input
                 v-model="z.ReservedFor"
                 type="text"
                 class="zone-reserved"
@@ -197,12 +203,104 @@
           </div>
         </div>
 
+        <!-- seat rules editor: paint individual seats on the live preview -->
+        <div class="zones-box">
+          <div class="zones-head">
+            <span class="section-title">
+              <i class="fa-duotone fa-solid fa-wand-magic-sparkles"></i>
+              {{ t("seat_rules") }}
+            </span>
+          </div>
+          <p class="hint">{{ t("seat_rules_hint") }}</p>
+          <div class="paint-modes">
+            <button
+              class="btn btn-sm"
+              :class="{ active: paintMode === 'price' }"
+              @click="setPaintMode('price')"
+            >
+              <i class="fa-duotone fa-solid fa-tag"></i> {{ t("paint_price") }}
+            </button>
+            <button
+              class="btn btn-sm"
+              :class="{ active: paintMode === 'sale' }"
+              @click="setPaintMode('sale')"
+            >
+              <i class="fa-duotone fa-solid fa-clock"></i> {{ t("paint_sale") }}
+            </button>
+            <button
+              class="btn btn-sm"
+              :class="{ active: paintMode === 'bundle' }"
+              @click="setPaintMode('bundle')"
+            >
+              <i class="fa-duotone fa-solid fa-link"></i> {{ t("paint_bundle") }}
+            </button>
+            <button
+              class="btn btn-sm"
+              :class="{ active: paintMode === 'erase' }"
+              @click="setPaintMode('erase')"
+            >
+              <i class="fa-duotone fa-solid fa-eraser"></i> {{ t("paint_erase") }}
+            </button>
+          </div>
+          <div v-if="paintMode === 'price'" class="paint-value">
+            <label>{{ t("paint_price_value") }}</label>
+            <input v-model.number="paintPrice" type="number" min="1" />
+            <span class="hint">{{ t("paint_price_hint") }}</span>
+          </div>
+          <div v-if="paintMode === 'sale'" class="paint-value">
+            <label>{{ t("paint_sale_value") }}</label>
+            <input v-model="paintSale" type="datetime-local" />
+            <span class="hint">{{ t("paint_sale_hint") }}</span>
+          </div>
+          <div v-if="paintMode === 'bundle'" class="paint-value">
+            <label>{{ t("paint_bundle_value") }}</label>
+            <div class="bundle-draft-seats">
+              {{ bundleDraft.length ? bundleDraft.join(" + ") : t("bundle_draft_empty") }}
+            </div>
+            <div class="bundle-draft-row">
+              <input
+                v-model.number="bundlePrice"
+                type="number"
+                min="1"
+                :placeholder="t('price')"
+              />
+              <button
+                class="btn btn-sm btn-primary"
+                :disabled="bundleDraft.length < 2 || !(Number(bundlePrice) > 0)"
+                @click="saveBundleDraft"
+              >
+                <i class="fa-duotone fa-solid fa-link"></i> {{ t("bundle_make") }}
+              </button>
+            </div>
+          </div>
+          <div v-if="overrideList.length" class="rule-list">
+            <span class="rule-list-title">{{ t("overrides") }}</span>
+            <span v-for="o in overrideList" :key="o.seat" class="chip chip-rule">
+              {{ o.seat }}
+              <em v-if="o.Price">{{ o.Price }} ฿</em>
+              <em v-if="o.SaleStarts"><i class="fa-solid fa-clock"></i> {{ o.SaleStarts.replace('T', ' ') }}</em>
+              <button class="chip-x" @click="delete form.Overrides[o.seat]">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </span>
+          </div>
+          <div v-if="form.Bundles.length" class="rule-list">
+            <span class="rule-list-title">{{ t("bundles") }}</span>
+            <span v-for="(b, i) in form.Bundles" :key="i" class="chip chip-rule">
+              {{ b.Seats.join(" + ") }} <em>{{ b.Price }} ฿</em>
+              <button class="chip-x" @click="removeBundle(i)">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </span>
+          </div>
+        </div>
+
         <!-- live seat-map preview (what the customer sees) -->
         <div class="preview-box">
           <div class="preview-head">
             <span class="section-title">
               <i class="fa-duotone fa-solid fa-eye"></i>
-              {{ t("preview_map") }}
+              {{ t(paintMode === 'off' ? 'preview_map' : 'preview_map_painting') }}
             </span>
           </div>
           <div class="preview-scroll">
@@ -210,8 +308,13 @@
               :total-rows="Math.max(1, Math.floor(Number(form.TotalRows) || 16))"
               :max-column="Number(form.MaxColumn) || 26"
               :front-rows="previewFrontRows"
-              :row-colors="rowColorMap(previewEvent)"
-              :reserved-rows="reservedRowMap(previewEvent)"
+              :row-colors="previewRowColors"
+              :reserved-rows="previewReserved"
+              :locked-seats="previewLocked"
+              :bundle-seats="previewBundles"
+              :selected="previewSelected"
+              :admin-mode="paintMode !== 'off'"
+              @select="onPreviewSelect"
             />
           </div>
         </div>
@@ -402,7 +505,13 @@ import {
   formatPaidAt,
   formatPhone,
 } from "../api/bookings.js";
-import { formatPriceRange, rowColorMap, reservedRowMap } from "../price.js";
+import {
+  formatPriceRange,
+  rowColorMap,
+  reservedRowMap,
+  lockedSaleSeats,
+  parseBundles,
+} from "../price.js";
 import { rowLabel, rowLabelToIndex, totalRowsOf } from "../layout.js";
 import SeatGrid from "../components/SeatGrid.vue";
 const { t } = useI18n();
@@ -428,10 +537,88 @@ const emptyForm = () => ({
   MaxColumn: 26,
   IsActive: true,
   Zones: [],
+  // Per-seat rules (see price.js): SeatOverrides = {seat:{Price,SaleStarts}},
+  // Bundles = [{Seats:[..],Price}].
+  Overrides: {},
+  Bundles: [],
   FrontCount: 0,
   FrontWidth: 10,
 });
 const form = reactive(emptyForm());
+
+// ── Seat-rules paint editor ───────────────────────────────────────────
+// A mode switch under the live preview. In a paint mode every seat in the
+// preview is tappable and a click applies the current paint value.
+//   price  — apply PaintPrice to the clicked seat (override its zone price)
+//   sale   — apply PaintSale (datetime) to the clicked seat (staggered release)
+//   bundle — toggle seats into a draft bundle set, then "make bundle"
+//   erase  — remove override / bundle membership from the clicked seat
+const paintMode = ref("off"); // off|price|sale|bundle|erase
+const paintPrice = ref(0);
+const paintSale = ref("");
+const bundleDraft = ref([]);
+const bundlePrice = ref(0);
+
+function setPaintMode(m) {
+  paintMode.value = paintMode.value === m ? "off" : m;
+  if (paintMode.value !== "bundle") bundleDraft.value = [];
+}
+function bundleIndexOf(seat) {
+  return form.Bundles.findIndex((b) => b.Seats.includes(seat));
+}
+function onPaintSeat(seat) {
+  const mode = paintMode.value;
+  if (mode === "price") {
+    const p = Number(paintPrice.value) || 0;
+    if (p > 0) {
+      form.Overrides[seat] = { ...(form.Overrides[seat] || {}), Price: p };
+    }
+    return;
+  }
+  if (mode === "sale") {
+    const s = String(paintSale.value || "");
+    if (s) {
+      form.Overrides[seat] = { ...(form.Overrides[seat] || {}), SaleStarts: s };
+    }
+    return;
+  }
+  if (mode === "bundle") {
+    const i = bundleDraft.value.indexOf(seat);
+    if (i >= 0) bundleDraft.value.splice(i, 1);
+    else if (bundleDraft.value.length < 8) bundleDraft.value.push(seat);
+    return;
+  }
+  if (mode === "erase") {
+    delete form.Overrides[seat];
+    const bi = bundleIndexOf(seat);
+    if (bi >= 0) {
+      form.Bundles[bi].Seats = form.Bundles[bi].Seats.filter((s) => s !== seat);
+      if (form.Bundles[bi].Seats.length < 2) form.Bundles.splice(bi, 1);
+    }
+  }
+}
+function saveBundleDraft() {
+  const price = Number(bundlePrice.value) || 0;
+  if (bundleDraft.value.length < 2 || price <= 0) return;
+  // a seat belongs to at most one bundle — drop it from any existing one
+  const taken = new Set(bundleDraft.value);
+  form.Bundles = form.Bundles
+    .map((b) => ({ ...b, Seats: b.Seats.filter((s) => !taken.has(s)) }))
+    .filter((b) => b.Seats.length >= 2);
+  form.Bundles.push({ Seats: [...bundleDraft.value], Price: price });
+  bundleDraft.value = [];
+  bundlePrice.value = 0;
+}
+function removeBundle(i) {
+  form.Bundles.splice(i, 1);
+}
+const overrideList = computed(() =>
+  Object.entries(form.Overrides).map(([seat, o]) => ({ seat, ...o }))
+);
+// Preview highlight for the bundle draft (SeatGrid `selected` prop).
+const previewSelected = computed(() =>
+  paintMode.value === "bundle" ? bundleDraft.value : []
+);
 
 // Resize + center-crop an uploaded image to 3:4 portrait (max 600x800 JPEG)
 // so it fits cleanly in NocoDB LongText and renders fast on the home page.
@@ -484,6 +671,7 @@ function addZone(locked = false) {
     RowTo: first,
     Price: 0,
     Color: "",
+    SaleStarts: "",
     ReservedFor: locked ? t("zone_staff") : "",
   });
 }
@@ -525,6 +713,8 @@ const previewEvent = computed(() => ({
     FrontRows: previewFrontRows.value.length
       ? JSON.stringify(previewFrontRows.value)
       : null,
+    SeatOverrides: serializeOverrides(),
+    Bundles: serializeBundles(),
     Zones: form.Zones.length
       ? JSON.stringify(
           form.Zones
@@ -534,6 +724,7 @@ const previewEvent = computed(() => ({
               RowTo: z.RowTo || z.RowFrom,
               Price: Number(z.Price) || 0,
               ...(String(z.Color || "").trim() ? { Color: String(z.Color).trim() } : {}),
+              ...(String(z.SaleStarts || "").trim() ? { SaleStarts: String(z.SaleStarts).trim() } : {}),
               ...(String(z.ReservedFor || "").trim()
                 ? { ReservedFor: String(z.ReservedFor).trim() }
                 : {}),
@@ -542,6 +733,23 @@ const previewEvent = computed(() => ({
       : null,
   },
 }));
+// SeatGrid props derived from the preview event (seat-rule paint modes).
+const previewRowColors = computed(() => rowColorMap(previewEvent.value));
+const previewReserved = computed(() => reservedRowMap(previewEvent.value));
+const previewLocked = computed(() => lockedSaleSeats(previewEvent.value, Date.now()));
+const previewBundles = computed(() => {
+  const map = {};
+  parseBundles(previewEvent.value).forEach((b) => {
+    b.seats.forEach((s, j) => {
+      if (!(s in map)) map[s] = { seats: b.seats, price: b.price, anchor: j === 0 };
+    });
+  });
+  return map;
+});
+function onPreviewSelect(payload) {
+  // adminMode emits a raw seat label string
+  if (typeof payload === "string") onPaintSeat(payload);
+}
 const previewFrontRows = computed(() => {
   const fc = Math.max(0, Math.floor(Number(form.FrontCount) || 0));
   const fw = Math.max(1, Math.min(52, Math.floor(Number(form.FrontWidth) || 10)));
@@ -643,6 +851,9 @@ async function unlock() {
 function resetForm() {
   editingId.value = null;
   Object.assign(form, emptyForm());
+  paintMode.value = "off";
+  bundleDraft.value = [];
+  bundlePrice.value = 0;
 }
 
 function parseZonesField(raw) {
@@ -663,6 +874,7 @@ function parseZonesField(raw) {
       RowTo: String(e.RowTo ?? e.RowFrom).toUpperCase(),
       Price: Number(e.Price) || 0,
       Color: String(e.Color ?? e.color ?? ""),
+      SaleStarts: String(e.SaleStarts ?? e.saleStarts ?? "").trim(),
       ReservedFor: String(e.ReservedFor ?? e.reservedFor ?? "").trim(),
     }));
 }
@@ -686,6 +898,65 @@ function parseFrontRowsField(raw) {
   return { count: nums.length, width: Math.max(...nums) };
 }
 
+// Serialize the per-seat rule maps for NocoDB (null when empty).
+function serializeOverrides() {
+  const out = {};
+  for (const [seat, o] of Object.entries(form.Overrides)) {
+    const price = Number(o.Price) || 0;
+    const sale = String(o.SaleStarts || "").trim();
+    if (!price && !sale) continue;
+    out[seat] = {
+      ...(price ? { Price: price } : {}),
+      ...(sale ? { SaleStarts: sale } : {}),
+    };
+  }
+  return Object.keys(out).length ? JSON.stringify(out) : null;
+}
+function serializeBundles() {
+  const out = form.Bundles
+    .filter((b) => Array.isArray(b.Seats) && b.Seats.length >= 2 && Number(b.Price) > 0)
+    .map((b) => ({ Seats: b.Seats, Price: Number(b.Price) }));
+  return out.length ? JSON.stringify(out) : null;
+}
+function parseOverridesField(raw) {
+  let v = raw;
+  if (typeof raw === "string") {
+    try {
+      v = JSON.parse(raw);
+    } catch {
+      v = null;
+    }
+  }
+  if (!v || typeof v !== "object" || Array.isArray(v)) return {};
+  const out = {};
+  for (const [k, o] of Object.entries(v)) {
+    const seat = String(k).toUpperCase();
+    const price = Number(o?.Price ?? o?.price ?? 0);
+    const sale = String(o?.SaleStarts ?? o?.saleStarts ?? "").trim();
+    if (price > 0 || sale) out[seat] = { ...(price ? { Price: price } : {}), ...(sale ? { SaleStarts: sale } : {}) };
+  }
+  return out;
+}
+function parseBundlesField(raw) {
+  let v = raw;
+  if (typeof raw === "string") {
+    try {
+      v = JSON.parse(raw);
+    } catch {
+      v = null;
+    }
+  }
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((b) => ({
+      Seats: (Array.isArray(b?.Seats ?? b?.seats) ? b.Seats ?? b.seats : []).map((s) =>
+        String(s).toUpperCase()
+      ),
+      Price: Number(b?.Price ?? b?.price ?? 0),
+    }))
+    .filter((b) => b.Seats.length >= 2 && b.Price > 0);
+}
+
 function edit(ev) {
   editingId.value = ev.id;
   form.Title = ev.fields.Title || "";
@@ -700,6 +971,10 @@ function edit(ev) {
   form.MaxColumn = Number(ev.fields.MaxColumn) || 26;
   form.IsActive = Boolean(ev.fields.IsActive);
   form.Zones = parseZonesField(ev.fields.Zones);
+  form.Overrides = parseOverridesField(ev.fields.SeatOverrides);
+  form.Bundles = parseBundlesField(ev.fields.Bundles);
+  paintMode.value = "off";
+  bundleDraft.value = [];
   const fr = parseFrontRowsField(ev.fields.FrontRows);
   form.FrontCount = fr.count;
   form.FrontWidth = fr.width;
@@ -721,6 +996,8 @@ async function save() {
       TotalRows: total,
       MaxColumn: Number(form.MaxColumn) || 26,
       IsActive: Boolean(form.IsActive),
+      SeatOverrides: serializeOverrides(),
+      Bundles: serializeBundles(),
       Zones: form.Zones.length
         ? JSON.stringify(
             form.Zones
@@ -730,6 +1007,7 @@ async function save() {
                 RowTo: z.RowTo || z.RowFrom,
                 Price: Number(z.Price) || 0,
                 ...(String(z.Color || "").trim() ? { Color: String(z.Color).trim() } : {}),
+                ...(String(z.SaleStarts || "").trim() ? { SaleStarts: String(z.SaleStarts).trim() } : {}),
                 ...(String(z.ReservedFor || "").trim()
                   ? { ReservedFor: String(z.ReservedFor).trim() }
                   : {}),
@@ -1261,6 +1539,109 @@ onMounted(async () => {
   padding: 0.45rem 0.6rem;
   font-family: inherit;
   font-size: 0.9rem;
+}
+.zone-sale {
+  flex: 1.4;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.45rem 0.6rem;
+  font-family: inherit;
+  font-size: 0.82rem;
+  color-scheme: dark;
+}
+/* seat-rules paint editor */
+.paint-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.paint-modes .btn.active {
+  border-color: var(--accent);
+  color: var(--accent-soft);
+  background: var(--accent-bg);
+}
+.paint-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: var(--sp-2);
+  font-size: 0.85rem;
+}
+.paint-value > label {
+  color: var(--muted);
+  font-weight: 600;
+  flex: none;
+}
+.paint-value input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.4rem 0.55rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color-scheme: dark;
+}
+.paint-value .hint {
+  font-size: 0.75rem;
+}
+.bundle-draft-seats {
+  flex: 1 1 100%;
+  min-height: 1.2em;
+  color: var(--accent-soft);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.bundle-draft-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+.bundle-draft-row input {
+  flex: 1;
+  min-width: 0;
+}
+.rule-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+.rule-list-title {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 0.2rem;
+}
+.chip-rule {
+  gap: 0.35rem;
+  font-size: 0.78rem;
+}
+.chip-rule em {
+  font-style: normal;
+  color: var(--gold);
+  font-weight: 600;
+}
+.chip-rule .chip-x {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 0.1rem;
+  font-size: 0.75rem;
+}
+.chip-rule .chip-x:hover {
+  color: var(--danger);
 }
 .zone-row input[disabled] {
   opacity: 0.5;

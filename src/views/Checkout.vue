@@ -50,8 +50,8 @@
             <span class="num">{{ seats.length }}</span>
           </div>
           <div class="selected-chips">
-            <span v-for="s in seats" :key="s" class="chip-seat">
-              {{ s }}<em>{{ priceForLabel(s) }}</em>
+            <span v-for="g in chipGroups" :key="g.label" class="chip-seat">
+              {{ g.label }}<em>{{ g.price }}</em>
             </span>
           </div>
           <div class="os-row total">
@@ -128,8 +128,7 @@ import { useI18n } from "../i18n.js";
 import { getEvent } from "../api/events.js";
 import { createBooking, formatPhone } from "../api/bookings.js";
 import { getSelection, clearSelection } from "../selection.js";
-import { totalForSeats, priceForIndex } from "../price.js";
-import { splitSeat, rowLabelToIndex } from "../layout.js";
+import { totalForSeats, seatPrice, parseBundles, seatNotYetOnSale } from "../price.js";
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
@@ -164,10 +163,23 @@ function onPhoneInput(e) {
 
 const total = computed(() => totalForSeats(event.value, seats.value));
 
-function priceForLabel(label) {
-  const p = splitSeat(label);
-  return `${p ? priceForIndex(event.value, rowLabelToIndex(p.row) - 1) : 0} ฿`;
-}
+// Summary chips: a fully-selected bundle collapses into ONE chip at the
+// bundle price; other seats price individually (override -> zone -> base).
+const chipGroups = computed(() => {
+  const groups = [];
+  const used = new Set();
+  for (const b of parseBundles(event.value)) {
+    if (b.seats.every((s) => seats.value.includes(s))) {
+      groups.push({ label: b.seats.join(" + "), price: `${b.price} ฿` });
+      b.seats.forEach((s) => used.add(s));
+    }
+  }
+  for (const s of seats.value) {
+    if (used.has(s)) continue;
+    groups.push({ label: s, price: `${seatPrice(event.value, s)} ฿` });
+  }
+  return groups;
+});
 
 function copyBank() {
   navigator.clipboard
@@ -196,6 +208,11 @@ function goBack() {
 
 async function pay() {
   if (!valid.value || paying.value) return;
+  // Guard: a seat's sale window may have been (re)set after selection.
+  if (seats.value.some((s) => seatNotYetOnSale(event.value, s))) {
+    error.value = t("error_not_on_sale");
+    return;
+  }
   paying.value = true;
   error.value = "";
   try {
