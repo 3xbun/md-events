@@ -232,7 +232,7 @@
               :class="{ active: paintMode === 'bundle' }"
               @click="setPaintMode('bundle')"
             >
-              <i class="fa-duotone fa-solid fa-seats"></i> {{ t("paint_bundle") }}
+              <i class="fa-duotone fa-solid fa-link"></i> {{ t("paint_bundle") }}
             </button>
             <button
               class="btn btn-sm"
@@ -269,7 +269,7 @@
                 :disabled="bundleDraft.length < 2 || !(Number(bundlePrice) > 0)"
                 @click="saveBundleDraft"
               >
-                <i class="fa-duotone fa-solid fa-seats"></i> {{ t("bundle_make") }}
+                <i class="fa-duotone fa-solid fa-link"></i> {{ t("bundle_make") }}
               </button>
             </div>
           </div>
