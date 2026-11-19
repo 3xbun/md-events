@@ -88,7 +88,7 @@ function parseJsonField(raw) {
   return v;
 }
 
-/** Seat label -> {price, sale} override map (cleaned, uppercased). */
+/** Seat label -> {price, sale, color} override map (cleaned, uppercased). */
 export function parseOverrides(event) {
   const v = parseJsonField(event?.fields?.SeatOverrides);
   const out = {};
@@ -98,8 +98,9 @@ export function parseOverrides(event) {
     if (!splitSeat(seat)) continue;
     const price = Number(entry?.Price ?? entry?.price ?? 0);
     const sale = String(entry?.SaleStarts ?? entry?.saleStarts ?? "").trim();
-    if ((!price || price <= 0) && !sale) continue;
-    out[seat] = { price: price > 0 ? price : 0, sale };
+    const color = String(entry?.Color ?? entry?.color ?? "").trim();
+    if ((!price || price <= 0) && !sale && !color) continue;
+    out[seat] = { price: price > 0 ? price : 0, sale, color };
   }
   return out;
 }
@@ -326,12 +327,16 @@ export function rowColorMap(event) {
   for (const g of priceGroups(event)) {
     for (let i = g.fi; i <= g.ti; i++) map[rowLabel(i + 1)] = g.color;
   }
-  // per-seat price overrides -> their own color (keyed by seat label, which
-  // SeatGrid checks before the row color)
+  // per-seat explicit color wins; per-seat price overrides -> their own color
+  // (keyed by seat label, which SeatGrid checks before the row color)
   const colorByPrice = new Map();
   let next = priceGroups(event).length;
-  for (const [seat, o] of Object.entries(parseOverrides(event))) {
-    if (!(o.price > 0)) continue;
+  const ovr = parseOverrides(event);
+  for (const [seat, o] of Object.entries(ovr)) {
+    if (o.color) map[seat] = o.color;
+  }
+  for (const [seat, o] of Object.entries(ovr)) {
+    if (!(o.price > 0) || map[seat]) continue; // explicit color already set
     if (!colorByPrice.has(o.price)) {
       colorByPrice.set(o.price, ZONE_PALETTE[next++ % ZONE_PALETTE.length]);
     }

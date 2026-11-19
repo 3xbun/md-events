@@ -47,6 +47,7 @@ export const en = {
   paint_price: "Price",
   paint_sale: "Sale date",
   paint_bundle: "Bundle",
+  paint_color: "Color",
   paint_erase: "Erase",
   paint_price_value: "Price ฿",
   paint_price_hint: "Click seats to set this price (overrides the row zone).",

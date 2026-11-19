@@ -236,6 +236,13 @@
             </button>
             <button
               class="btn btn-sm"
+              :class="{ active: paintMode === 'color' }"
+              @click="setPaintMode('color')"
+            >
+              <i class="fa-duotone fa-solid fa-palette"></i> {{ t("paint_color") }}
+            </button>
+            <button
+              class="btn btn-sm"
               :class="{ active: paintMode === 'erase' }"
               @click="setPaintMode('erase')"
             >
@@ -251,6 +258,11 @@
             <label>{{ t("paint_sale_value") }}</label>
             <input v-model="paintSale" type="datetime-local" />
             <span class="hint">{{ t("paint_sale_hint") }}</span>
+          </div>
+          <div v-if="paintMode === 'color'" class="paint-value">
+            <label>{{ t("paint_color_value") }}</label>
+            <input v-model="paintColor" type="color" class="zone-color" />
+            <span class="hint">{{ t("paint_color_hint") }}</span>
           </div>
           <div v-if="paintMode === 'bundle'" class="paint-value">
             <label>{{ t("paint_bundle_value") }}</label>
@@ -276,6 +288,7 @@
           <div v-if="overrideList.length" class="rule-list">
             <span class="rule-list-title">{{ t("overrides") }}</span>
             <span v-for="o in overrideList" :key="o.seat" class="chip chip-rule">
+              <span v-if="o.Color" class="rule-dot" :style="{ background: o.Color }"></span>
               {{ o.seat }}
               <em v-if="o.Price">{{ o.Price }} ฿</em>
               <em v-if="o.SaleStarts"><i class="fa-solid fa-clock"></i> {{ o.SaleStarts.replace('T', ' ') }}</em>
@@ -553,9 +566,10 @@ const form = reactive(emptyForm());
 //   sale   — apply PaintSale (datetime) to the clicked seat (staggered release)
 //   bundle — toggle seats into a draft bundle set, then "make bundle"
 //   erase  — remove override / bundle membership from the clicked seat
-const paintMode = ref("off"); // off|price|sale|bundle|erase
+const paintMode = ref("off"); // off|price|sale|bundle|color|erase
 const paintPrice = ref(0);
 const paintSale = ref("");
+const paintColor = ref("#ff8a65");
 const bundleDraft = ref([]);
 const bundlePrice = ref(0);
 
@@ -579,6 +593,13 @@ function onPaintSeat(seat) {
     const s = String(paintSale.value || "");
     if (s) {
       form.Overrides[seat] = { ...(form.Overrides[seat] || {}), SaleStarts: s };
+    }
+    return;
+  }
+  if (mode === "color") {
+    const c = String(paintColor.value || "");
+    if (c) {
+      form.Overrides[seat] = { ...(form.Overrides[seat] || {}), Color: c };
     }
     return;
   }
@@ -904,10 +925,12 @@ function serializeOverrides() {
   for (const [seat, o] of Object.entries(form.Overrides)) {
     const price = Number(o.Price) || 0;
     const sale = String(o.SaleStarts || "").trim();
-    if (!price && !sale) continue;
+    const color = String(o.Color || "").trim();
+    if (!price && !sale && !color) continue;
     out[seat] = {
       ...(price ? { Price: price } : {}),
       ...(sale ? { SaleStarts: sale } : {}),
+      ...(color ? { Color: color } : {}),
     };
   }
   return Object.keys(out).length ? JSON.stringify(out) : null;
@@ -933,7 +956,13 @@ function parseOverridesField(raw) {
     const seat = String(k).toUpperCase();
     const price = Number(o?.Price ?? o?.price ?? 0);
     const sale = String(o?.SaleStarts ?? o?.saleStarts ?? "").trim();
-    if (price > 0 || sale) out[seat] = { ...(price ? { Price: price } : {}), ...(sale ? { SaleStarts: sale } : {}) };
+    const color = String(o?.Color ?? o?.color ?? "").trim();
+    if (price > 0 || sale || color)
+      out[seat] = {
+        ...(price ? { Price: price } : {}),
+        ...(sale ? { SaleStarts: sale } : {}),
+        ...(color ? { Color: color } : {}),
+      };
   }
   return out;
 }
@@ -1631,6 +1660,13 @@ onMounted(async () => {
   font-style: normal;
   color: var(--gold);
   font-weight: 600;
+}
+.rule-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+  border: 1px solid var(--border);
 }
 .chip-rule .chip-x {
   background: none;
