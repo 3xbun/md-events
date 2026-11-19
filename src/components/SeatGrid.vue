@@ -24,7 +24,7 @@
         {{ t("seat_not_on_sale") }}
       </span>
       <span v-if="hasBundles" class="legend-item">
-        <i class="fa-solid fa-link legend-bundle"></i>
+        <i class="fa-solid fa-seats legend-bundle"></i>
         {{ t("seat_bundle") }}
       </span>
     </div>
@@ -79,11 +79,6 @@
                   class="fa-solid fa-clock seat-badge badge-pending"
                   aria-hidden="true"
                 ></i>
-                <i
-                  v-else-if="bundleAnchorOf(seatLabel(row.letter, c))"
-                  class="fa-solid fa-link seat-badge badge-bundle"
-                  :aria-label="t('seat_bundle')"
-                ></i>
               </div>
             </template>
           </template>
@@ -126,8 +121,8 @@ const props = defineProps({
   // seat-label -> true for seats NOT YET ON SALE (staggered release). They
   // render a clock icon, tinted with their zone color, and are unclickable.
   lockedSeats: { type: Object, default: () => ({}) },
-  // seat-label -> {seats, price, anchor} bundle membership. `anchor` seats
-  // carry a small link badge; clicking ANY member seat selects the whole set.
+  // seat-label -> {seats, price} bundle membership. Bundle members render the
+  // multi-seat glyph (fa-seats); clicking ANY member seat selects the whole set.
   bundleSeats: { type: Object, default: () => ({}) },
   // Admin paint mode: every seat is tappable (even reserved/locked/occupied)
   // and clicks emit single seats — used by the seat-rules editor.
@@ -242,10 +237,6 @@ function rowLabelStyle(row) {
 const hasReserved = computed(() => Object.keys(props.reservedRows).length > 0);
 const hasLocked = computed(() => Object.keys(props.lockedSeats || {}).length > 0);
 const hasBundles = computed(() => Object.keys(props.bundleSeats || {}).length > 0);
-function bundleAnchorOf(label) {
-  const b = props.bundleSeats?.[label];
-  return b && b.anchor ? b : null;
-}
 const reservedLegend = computed(() => {
   const labels = [...new Set(Object.values(props.reservedRows).map((z) => z.reserved))];
   return labels.length ? labels.join(" · ") : t("seat_reserved");
@@ -276,6 +267,8 @@ function seatIcon(r, c) {
   const st = seatState(r, c);
   if (st === "reserved") return "fa-duotone fa-solid fa-lock";
   if (st === "locked") return "fa-solid fa-clock";
+  // bundled seats show the multi-seat glyph instead of a single chair
+  if (props.bundleSeats?.[seatLabel(r, c)]) return "fa-solid fa-seats";
   return "fa-solid fa-seat";
 }
 function seatEnabled(r, c) {
@@ -499,10 +492,6 @@ function onSeat(r, c) {
 }
 .badge-pending {
   color: var(--pending);
-}
-.badge-bundle {
-  color: var(--accent-soft);
-  pointer-events: none;
 }
 .legend-badge {
   flex: none;
