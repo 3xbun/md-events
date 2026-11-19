@@ -104,6 +104,10 @@
             <label>{{ t("max_column") }}</label>
             <input v-model.number="form.MaxColumn" type="number" min="1" max="26" />
           </div>
+          <div class="field">
+            <label>{{ t("max_seats") }}</label>
+            <input v-model.number="form.MaxSeats" type="number" min="1" max="50" />
+          </div>
         </div>
 
         <!-- front rows (per-event expansion: the first N rows, narrow) -->
@@ -548,6 +552,7 @@ const emptyForm = () => ({
   Price: 0,
   TotalRows: 16,
   MaxColumn: 26,
+  MaxSeats: 8,
   IsActive: true,
   Zones: [],
   // Per-seat rules (see price.js): SeatOverrides = {seat:{Price,SaleStarts}},
@@ -998,6 +1003,7 @@ function edit(ev) {
   // events created before TotalRows existed.
   form.TotalRows = totalRowsOf(ev);
   form.MaxColumn = Number(ev.fields.MaxColumn) || 26;
+  form.MaxSeats = Number(ev.fields.MaxSeats) || 8;
   form.IsActive = Boolean(ev.fields.IsActive);
   form.Zones = parseZonesField(ev.fields.Zones);
   form.Overrides = parseOverridesField(ev.fields.SeatOverrides);
@@ -1024,6 +1030,7 @@ async function save() {
       Price: Number(form.Price) || 0,
       TotalRows: total,
       MaxColumn: Number(form.MaxColumn) || 26,
+      MaxSeats: Math.max(1, Math.floor(Number(form.MaxSeats) || 8)),
       IsActive: Boolean(form.IsActive),
       SeatOverrides: serializeOverrides(),
       Bundles: serializeBundles(),

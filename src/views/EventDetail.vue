@@ -38,7 +38,7 @@
       <section class="card map-section">
         <div class="map-head">
           <h2 class="section-title">{{ t("seat_map") }}</h2>
-          <span class="hint">{{ t("select_seats_hint") }}</span>
+          <span class="hint">{{ t("max_select_hint", { count: MAX_SELECT }) }}</span>
         </div>
         <div v-if="groups.length || reservedGroups.length" class="zone-legend">
           <span v-for="g in groups" :key="g.from" class="zone-chip">
@@ -136,7 +136,12 @@ const loading = ref(true);
 const occupied = ref([]);
 const seatStates = ref({});
 const selected = ref([]);
-const MAX_SELECT = 8;
+// Per-order seat cap: events.MaxSeats (admin-set), default 8. Bundles count
+// all their seats against it.
+const MAX_SELECT = computed(() => {
+  const n = Math.floor(Number(event.value?.fields?.MaxSeats) || 0);
+  return n > 0 ? n : 8;
+});
 // Tick so "not on sale yet" flips at the sale time without a reload.
 const nowTick = ref(Date.now());
 let tickTimer = null;
@@ -218,7 +223,7 @@ function onGridSelect(payload) {
   const next = [...selected.value];
   for (const s of seats) {
     if (next.includes(s)) continue;
-    if (next.length >= MAX_SELECT) break;
+    if (next.length >= MAX_SELECT.value) break;
     next.push(s);
   }
   selected.value = next;

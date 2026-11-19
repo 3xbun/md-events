@@ -113,6 +113,7 @@ export const en = {
   event_name: "Event name",
   total_rows: "Total rows",
   max_column: "Max column (1–52)",
+  max_seats: "Max seats per order",
   front_rows: "Front rows",
   front_rows_hint:
     "The first rows, nearest the stage — narrower than the rest. They take the first letters (A, B, …); the remaining rows follow.",

@@ -81,6 +81,7 @@ export const th = {
   event_name: "ชื่อกิจกรรม",
   max_row: "จำนวนแถวสูงสุด",
   max_column: "จำนวนคอลัมน์สูงสุด",
+  max_seats: "ที่นั่งสูงสุดต่อคำสั่งซื้อ",
   status_active: "เปิดใช้งาน",
   status_inactive: "ปิดใช้งาน",
   confirm_delete: "ยืนยันการลบข้อมูล?",
