@@ -81,6 +81,53 @@
             </div>
           </div>
         </div>
+        <div class="desc-box">
+          <div class="desc-box-head">
+            <span class="section-title">
+              <i class="fa-duotone fa-solid fa-align-left"></i>
+              {{ t("description") }}
+            </span>
+            <span class="hint">{{ t("description_hint") }}</span>
+          </div>
+          <div class="rt-toolbar">
+            <button type="button" title="Bold" @mousedown.prevent @click="fmt('bold')"><i class="fa-solid fa-bold"></i></button>
+            <button type="button" title="Italic" @mousedown.prevent @click="fmt('italic')"><i class="fa-solid fa-italic"></i></button>
+            <button type="button" title="Underline" @mousedown.prevent @click="fmt('underline')"><i class="fa-solid fa-underline"></i></button>
+            <button type="button" title="H2" @mousedown.prevent @click="fmtHeading('H2')">H2</button>
+            <button type="button" title="H3" @mousedown.prevent @click="fmtHeading('H3')">H3</button>
+            <button type="button" title="Bulleted list" @mousedown.prevent @click="fmt('insertUnorderedList')"><i class="fa-solid fa-list-ul"></i></button>
+            <button type="button" title="Numbered list" @mousedown.prevent @click="fmt('insertOrderedList')"><i class="fa-solid fa-list-ol"></i></button>
+            <span class="rt-sep"></span>
+            <button
+              v-for="c in TEXT_COLORS"
+              :key="c"
+              type="button"
+              class="rt-color-dot"
+              :style="{ background: c }"
+              :title="c"
+              @mousedown.prevent
+              @click="fmtColor(c)"
+            ></button>
+            <label
+              class="rt-color-pick"
+              :style="{ background: paintText }"
+              title="Custom color"
+            >
+              A
+              <input v-model="paintText" type="color" @mousedown.stop @change="fmtColor(paintText)" />
+            </label>
+            <button
+              type="button"
+              class="btn btn-sm"
+              title="Clear formatting"
+              @mousedown.prevent
+              @click="fmt('removeFormat')"
+            >
+              {{ t("format_clear") }}
+            </button>
+          </div>
+          <div ref="descEditor" class="rt-editor" contenteditable="true" :data-placeholder="t('description_placeholder')" :data-empty="!String(form.Description||'').trim()" @input="onDescInput"></div>
+        </div>
         <div class="grid-2">
           <div class="field">
             <label>{{ t("show_date") }}</label>
@@ -503,11 +550,18 @@
         </div>
       </div>
     </div>
+
+    <!-- global feedback toast (outside the modal backdrop, which is
+         v-if=activeBooking and would otherwise hide it) -->
+    <div v-if="toast" class="toast" :class="toast.kind">
+      <i class="fa-solid" :class="toast.kind === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'"></i>
+      {{ toast.msg }}
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from "vue";
+import { ref, reactive, onMounted, computed, nextTick } from "vue";
 import { useI18n } from "../i18n.js";
 import { isUnlocked, tryUnlockPin } from "../api/adminAuth.js";
 import {
@@ -530,6 +584,7 @@ import {
   parseBundles,
 } from "../price.js";
 import { rowLabel, rowLabelToIndex, totalRowsOf } from "../layout.js";
+import { sanitizeRichText } from "../richText.js";
 import SeatGrid from "../components/SeatGrid.vue";
 const { t } = useI18n();
 
@@ -543,10 +598,53 @@ const editingId = ref(null);
 const saving = ref(false);
 const busyId = ref(null);
 
+// ── Toast (visible feedback; save/poster errors were silently swallowed
+// before — console.error only). ────────────────────────────────────────────
+const toast = ref(null);
+let toastTimer = null;
+function showToast(msg, kind = "ok", ms = 3500) {
+  toast.value = { msg, kind };
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (toast.value = null), ms);
+}
+
+// ── Description rich-text editor (contenteditable) ─────────────────────────
+// Stores sanitized HTML in events.Description (see src/richText.js).
+const TEXT_COLORS = [
+  "#1f2937", "#b91c1c", "#c2410c", "#a16207",
+  "#15803d", "#1d4ed8", "#6d28d9", "#be185d",
+];
+const paintText = ref("#b91c1c");
+const descEditor = ref(null);
+function onDescInput() {
+  form.Description = descEditor.value?.innerHTML ?? "";
+}
+function fmt(command) {
+  descEditor.value?.focus();
+  document.execCommand(command, false, null);
+  onDescInput();
+}
+function fmtHeading(tag) {
+  descEditor.value?.focus();
+  document.execCommand("formatBlock", false, tag);
+  onDescInput();
+}
+function fmtColor(color) {
+  descEditor.value?.focus();
+  document.execCommand("styleWithCSS", false, true);
+  document.execCommand("foreColor", false, color);
+  onDescInput();
+}
+function paintDescription() {
+  if (!descEditor.value) return;
+  descEditor.value.innerHTML = sanitizeRichText(form.Description) || "";
+}
+
 const emptyForm = () => ({
   Title: "",
   Venue: "",
   Poster: "",
+  Description: "",
   ShowDate: "",
   StartTime: "",
   Price: 0,
@@ -648,36 +746,51 @@ const previewSelected = computed(() =>
 
 // Resize + center-crop an uploaded image to 3:4 portrait (max 600x800 JPEG)
 // so it fits cleanly in NocoDB LongText and renders fast on the home page.
+// Errors (unsupported formats like HEIC/HEIF, decode failures) surface a
+// toast — before this the throw was invisible and "upload from file"
+// appeared to do nothing.
 function onPosterFile(e) {
   const file = e.target.files?.[0];
   e.target.value = "";
   if (!file) return;
   const reader = new FileReader();
+  reader.onerror = () => {
+    showToast(t("poster_read_error", { file: file.name }), "error");
+  };
   reader.onload = () => {
     const img = new Image();
+    img.onerror = () => {
+      showToast(t("poster_unsupported", { file: file.name }), "error", 6000);
+    };
     img.onload = () => {
-      const targetRatio = 3 / 4;
-      const srcRatio = img.width / img.height;
-      let sw = img.width;
-      let sh = img.height;
-      let sx = 0;
-      let sy = 0;
-      if (srcRatio > targetRatio) {
-        sw = Math.round(img.height * targetRatio);
-        sx = Math.round((img.width - sw) / 2);
-      } else if (srcRatio < targetRatio) {
-        sh = Math.round(img.width / targetRatio);
-        sy = Math.round((img.height - sh) / 2);
+      try {
+        const targetRatio = 3 / 4;
+        const srcRatio = img.width / img.height;
+        let sw = img.width;
+        let sh = img.height;
+        let sx = 0;
+        let sy = 0;
+        if (srcRatio > targetRatio) {
+          sw = Math.round(img.height * targetRatio);
+          sx = Math.round((img.width - sw) / 2);
+        } else if (srcRatio < targetRatio) {
+          sh = Math.round(img.width / targetRatio);
+          sy = Math.round((img.height - sh) / 2);
+        }
+        const maxW = 600;
+        const outW = Math.min(maxW, sw);
+        const outH = Math.round((outW * 4) / 3);
+        const canvas = document.createElement("canvas");
+        canvas.width = outW;
+        canvas.height = outH;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, outW, outH);
+        form.Poster = canvas.toDataURL("image/jpeg", 0.82);
+        showToast(t("poster_uploaded"));
+      } catch (err) {
+        console.error("poster crop failed", err);
+        showToast(t("poster_unsupported", { file: file.name }), "error", 6000);
       }
-      const maxW = 600;
-      const outW = Math.min(maxW, sw);
-      const outH = Math.round((outW * 4) / 3);
-      const canvas = document.createElement("canvas");
-      canvas.width = outW;
-      canvas.height = outH;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, outW, outH);
-      form.Poster = canvas.toDataURL("image/jpeg", 0.82);
     };
     img.src = reader.result;
   };
@@ -880,6 +993,9 @@ function resetForm() {
   paintMode.value = "off";
   bundleDraft.value = [];
   bundlePrice.value = 0;
+  nextTick(() => {
+    if (descEditor.value) descEditor.value.innerHTML = "";
+  });
 }
 
 function parseZonesField(raw) {
@@ -996,6 +1112,8 @@ function edit(ev) {
   form.Title = ev.fields.Title || "";
   form.Venue = ev.fields.Venue || "";
   form.Poster = ev.fields.Poster || "";
+  form.Description = sanitizeRichText(String(ev.fields.Description || ""));
+  nextTick(paintDescription);
   form.ShowDate = normalizeDate(ev.fields.ShowDate);
   form.StartTime = ev.fields.StartTime || "";
   form.Price = Number(ev.fields.Price) || 0;
@@ -1025,6 +1143,7 @@ async function save() {
       Title: form.Title,
       Venue: form.Venue,
       Poster: String(form.Poster || "").trim() || null,
+      Description: sanitizeRichText(String(form.Description || "")) || null,
       ShowDate: form.ShowDate,
       StartTime: form.StartTime,
       Price: Number(form.Price) || 0,
@@ -1067,8 +1186,11 @@ async function save() {
     }
     resetForm();
     await load();
+    showToast(t("saved_ok"));
   } catch (e) {
     console.error(e);
+    const msg = e?.response?.data?.message || e?.message || t("save_failed");
+    showToast(msg, "error", 6000);
   } finally {
     saving.value = false;
   }
@@ -1440,6 +1562,152 @@ onMounted(async () => {
 .poster-box-head .section-title {
   margin: 0;
   font-size: 0.95rem;
+}
+.desc-box {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: var(--box-pad);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  background: var(--surface-2);
+}
+.desc-box-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.desc-box-head .section-title {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.rt-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.45rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.rt-toolbar button {
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.45rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.rt-toolbar button:hover {
+  border-color: var(--accent);
+  color: var(--accent-soft);
+}
+.rt-sep {
+  width: 1px;
+  height: 1.4rem;
+  background: var(--border);
+  margin: 0 0.2rem;
+}
+.rt-color-dot {
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  padding: 0;
+}
+.rt-color-dot:hover {
+  transform: scale(1.15);
+}
+.rt-color-pick {
+  position: relative;
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
+}
+.rt-color-pick input[type="color"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.rt-editor {
+  min-height: 9rem;
+  max-height: 24rem;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.7rem 0.85rem;
+  color: var(--text);
+  line-height: 1.55;
+}
+.rt-editor:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.rt-editor[data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted);
+}
+.rt-editor h2 {
+  font-size: 1.15rem;
+  margin: 0.5rem 0 0.25rem;
+}
+.rt-editor h3 {
+  font-size: 1rem;
+  margin: 0.4rem 0 0.2rem;
+}
+.rt-editor p {
+  margin: 0.3rem 0;
+}
+.rt-editor ul,
+.rt-editor ol {
+  margin: 0.3rem 0;
+  padding-left: 1.4rem;
+}
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.7rem 1.1rem;
+  background: var(--surface-2);
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 0.9rem;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  z-index: 50;
+  max-width: 90vw;
+}
+.toast.error {
+  border-color: var(--danger-border);
+  color: var(--danger);
+}
+.toast i {
+  font-size: 1rem;
 }
 .poster-editor {
   display: flex;

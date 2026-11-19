@@ -30,9 +30,11 @@
             {{ t("price_from", { count: formatPriceRange(event) }) }}
           </span>
         </div>
-        <p v-if="event.fields.Description" class="ev-desc">
-          {{ event.fields.Description }}
-        </p>
+        <div
+          v-if="event.fields.Description"
+          class="ev-desc"
+          v-html="renderRichText(event.fields.Description)"
+        ></div>
       </section>
 
       <section class="card map-section">
@@ -126,6 +128,7 @@ import {
   lockedSaleSeats,
 } from "../price.js";
 import { frontRowsOf, totalRowsOf, splitSeat } from "../layout.js";
+import { renderRichText } from "../richText.js";
 import SeatGrid from "../components/SeatGrid.vue";
 const { t } = useI18n();
 const route = useRoute();
@@ -332,7 +335,29 @@ onBeforeUnmount(() => {
   color: var(--muted);
   margin: 0.8rem 0 0;
   font-size: 0.9rem;
+  line-height: 1.55;
+}
+.ev-desc :deep(h2) {
+  font-size: 1.15rem;
+  margin: 0.5rem 0 0.25rem;
+  color: var(--text);
+}
+.ev-desc :deep(h3) {
+  font-size: 1rem;
+  margin: 0.4rem 0 0.2rem;
+  color: var(--text);
+}
+.ev-desc :deep(p) {
+  margin: 0.3rem 0;
   white-space: pre-wrap;
+}
+.ev-desc :deep(ul),
+.ev-desc :deep(ol) {
+  margin: 0.3rem 0;
+  padding-left: 1.4rem;
+}
+.ev-desc :deep(li) {
+  margin: 0.15rem 0;
 }
 .map-section {
   padding: var(--card-pad);
