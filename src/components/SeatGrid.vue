@@ -68,6 +68,11 @@
                   aria-hidden="true"
                 ></i>
                 <i
+                  v-if="linkBetween(row.letter, c)"
+                  class="fa-solid fa-link seat-link"
+                  :aria-label="t('seat_bundle')"
+                ></i>
+                <i
                   v-if="seatState(row.letter, c) === 'selected'"
                   class="fa-solid fa-circle-check seat-badge badge-sel"
                   role="button"
@@ -80,7 +85,7 @@
                   aria-hidden="true"
                 ></i>
                 <i
-                  v-else-if="bundleAnchorOf(seatLabel(row.letter, c))"
+                  v-else-if="bundleDetachedAnchor(row.letter, c)"
                   class="fa-solid fa-link seat-badge badge-bundle"
                   :aria-label="t('seat_bundle')"
                 ></i>
@@ -242,9 +247,31 @@ function rowLabelStyle(row) {
 const hasReserved = computed(() => Object.keys(props.reservedRows).length > 0);
 const hasLocked = computed(() => Object.keys(props.lockedSeats || {}).length > 0);
 const hasBundles = computed(() => Object.keys(props.bundleSeats || {}).length > 0);
-function bundleAnchorOf(label) {
-  const b = props.bundleSeats?.[label];
-  return b && b.anchor ? b : null;
+function bundleOf(label) {
+  return props.bundleSeats?.[label] || null;
+}
+function sharesBundle(a, b) {
+  const x = bundleOf(a);
+  const y = bundleOf(b);
+  return Boolean(
+    x && y && x.seats.length === y.seats.length && x.seats.every((s, i) => s === y.seats[i])
+  );
+}
+// True when this seat's bundle partner sits directly to its RIGHT: the link
+// icon then rides the cell's right edge, visually BETWEEN the two seats.
+function linkBetween(r, c) {
+  return sharesBundle(seatLabel(r, c), `${r}${c + 1}`);
+}
+// Fallback marker: a bundle whose seats are NOT horizontally adjacent can't
+// draw a connector, so the anchor keeps the old badge.
+function bundleDetachedAnchor(r, c) {
+  const label = seatLabel(r, c);
+  const b = bundleOf(label);
+  if (!b || b.seats[0] !== label) return false;
+  return !b.seats.some((s) => {
+    const m = String(s).match(/^([A-Z]+)(\d+)$/);
+    return m && sharesBundle(s, `${m[1]}${Number(m[2]) + 1}`);
+  });
 }
 const reservedLegend = computed(() => {
   const labels = [...new Set(Object.values(props.reservedRows).map((z) => z.reserved))];
@@ -499,6 +526,27 @@ function onSeat(r, c) {
 }
 .badge-pending {
   color: var(--pending);
+}
+/* Bundle connector: sits on the LEFT seat cell's right edge, half over the
+   grid gap, so it visually links the two adjacent seats. pointer-events:none
+   keeps the whole cell clickable. */
+.seat-link {
+  position: absolute;
+  top: 50%;
+  right: -8px;
+  transform: translateY(-50%);
+  font-size: 11px !important; /* beats .seat i { font-size: 1rem } */
+  line-height: 1;
+  color: var(--accent-soft);
+  pointer-events: none;
+  z-index: 2;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+@media (max-width: 600px) {
+  .seat-link {
+    font-size: 8px !important;
+    right: -5px;
+  }
 }
 .badge-bundle {
   color: var(--accent-soft);
