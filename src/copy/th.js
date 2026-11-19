@@ -4,7 +4,7 @@
 // checked it. Values are byte-exact from the generator output.
 export const th = {
   app_title: "Mater Dei Events",
-  tagline: "จองตั๋วและที่นั่งที่คุณต้องการได้ง่ายๆ ในไม่กี่คลิก",
+  tagline: "จองตั๋วและที่นั่งที่คุณต้องการได้ง่าย ๆ ในไม่กี่คลิก",
   browse_events: "เลือกกิจกรรม",
   events_count: "มีกิจกรรมทั้งหมด {count} รายการ",
   no_events: "ไม่พบกิจกรรมในขณะนี้",
