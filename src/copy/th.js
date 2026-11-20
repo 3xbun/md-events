@@ -3,7 +3,7 @@
 // proofread for tone-mark placement — do not treat as final until 3xbun has
 // checked it. Values are byte-exact from the generator output.
 export const th = {
-  app_title: "Mater Dei Events",
+  app_title: "มาแตร์เดอี อีเวนท์",
   tagline: "จองตั๋วและที่นั่งที่คุณต้องการได้ง่าย ๆ ในไม่กี่คลิก",
   browse_events: "เลือกกิจกรรม",
   events_count: "มีกิจกรรมทั้งหมด {count} รายการ",
