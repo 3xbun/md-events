@@ -316,6 +316,23 @@ export function priceGroups(event) {
       }
     }
     g.color = explicit || ZONE_PALETTE[idx % ZONE_PALETTE.length];
+    // EARLY-SALE display: the earliest sale-start among the zones covering this
+    // group's rows (empty when the group has no per-zone sale). The seat-map
+    // view renders it as "opens {date}" on the zone chip so an early-bird zone
+    // is distinguishable from the rest. Rows without a sale inherit the event
+    // global start (handled in seatSaleStart, not here).
+    let sale = "";
+    let saleT = Infinity;
+    for (const z of zones) {
+      if (!z.sale) continue;
+      if (z.ti < g.fi || z.fi > g.ti) continue; // no overlap with this group
+      const t = Date.parse(z.sale);
+      if (Number.isFinite(t) && t < saleT) {
+        saleT = t;
+        sale = z.sale;
+      }
+    }
+    g.sale = sale;
   });
   return groups;
 }

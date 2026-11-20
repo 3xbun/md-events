@@ -107,4 +107,6 @@ export const th = {
   cancelled: "ยกเลิกแล้ว",
   lang_th: "ไทย",
   lang_en: "EN",
+  sales_open: "ฟีด้ชัย {date}",
+  zone_opens: "ฟีด้ {date}",
 };

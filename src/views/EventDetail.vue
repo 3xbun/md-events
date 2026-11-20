@@ -38,6 +38,14 @@
       </section>
 
       <section class="card map-section">
+        <div
+          v-if="saleBanner"
+          class="sale-banner"
+          :class="{ future: saleBanner.future }"
+        >
+          <i class="fa-duotone fa-solid fa-calendar"></i>
+          <span>{{ saleBanner.text }}</span>
+        </div>
         <div class="map-head">
           <h2 class="section-title">{{ t("seat_map") }}</h2>
           <span class="hint">{{ t("max_select_hint", { count: MAX_SELECT }) }}</span>
@@ -46,6 +54,10 @@
           <span v-for="g in groups" :key="g.from" class="zone-chip">
             <span class="zone-dot" :style="{ background: g.color }"></span>
             {{ zoneLabel(g) }}
+            <span v-if="g.sale" class="zone-opens">
+              <i class="fa-solid fa-calendar"></i>
+              {{ t("zone_opens", { date: fmtSaleStart(g.sale) }) }}
+            </span>
           </span>
           <span
             v-for="rg in reservedGroups"
@@ -130,7 +142,7 @@ import {
 import { frontRowsOf, totalRowsOf, splitSeat } from "../layout.js";
 import { renderRichText } from "../richText.js";
 import SeatGrid from "../components/SeatGrid.vue";
-const { t } = useI18n();
+const { t, lang } = useI18n();
 const route = useRoute();
 const router = useRouter();
 
@@ -153,6 +165,44 @@ let tickTimer = null;
 const lockedSeats = computed(() =>
   event.value ? lockedSaleSeats(event.value, nowTick.value) : {}
 );
+// Human "MM DDD" + time, locale-aware ("28 Nov 15:30" / "28 พ.ย. 15:30").
+function fmtSaleStart(s) {
+  const m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (!m) return s;
+  const dt = new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:00`);
+  if (Number.isNaN(dt.getTime())) return s;
+  const locale = lang.value === "th" ? "th-TH" : "en-GB";
+  return (
+    dt.toLocaleDateString(locale, { day: "2-digit", month: "short" }) +
+    " " +
+    dt.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })
+  );
+}
+// Sale-status banner over the seat map. Shows when the event-wide (or the
+// EARLIEST zone) sale starts. `future` = sales not open yet → drives the
+// "opens" wording and the locked look; otherwise a neutral "on sale" note.
+// Recomputed on every nowTick so it flips live when the sale goes live.
+const saleBanner = computed(() => {
+  if (!event.value) return null;
+  const global = String(event.value.fields.SaleStarts || "").trim();
+  const zoneSales = parseZones(event.value)
+    .map((z) => z.sale)
+    .filter(Boolean);
+  const all = [global, ...zoneSales].filter(Boolean).map((s) => ({
+    raw: s,
+    t: Date.parse(s),
+  }));
+  const valid = all.filter((x) => Number.isFinite(x.t));
+  if (!valid.length) return null;
+  const earliest = valid.reduce((a, b) => (b.t < a.t ? b : a));
+  const now = nowTick.value;
+  const future = earliest.t > now;
+  const date = fmtSaleStart(earliest.raw);
+  return {
+    future,
+    text: t("sales_open", { date }),
+  };
+});
 // seat label -> {seats, price, anchor} for the bundle-pairing badges/clicks.
 const bundleSeats = computed(() => {
   const map = {};
@@ -210,12 +260,6 @@ const chipGroups = computed(() => {
   return groups;
 });
 
-function fmtSaleStart(s) {
-  // "2026-12-01T09:00" -> "01 Dec 09:00" (light, locale-free)
-  const m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
-  if (!m) return s;
-  return `${m[3]} ${m[2]} ${m[4]}:${m[5]}`;
-}
 function onGridSelect(payload) {
   // payload: { seats: [...], remove: bool } — a bundle emits all its seats.
   const { seats, remove } = payload;
@@ -361,6 +405,48 @@ onBeforeUnmount(() => {
 }
 .map-section {
   padding: var(--card-pad);
+}
+.sale-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.9rem;
+  padding: 0.65rem 0.95rem;
+  border-radius: 12px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.sale-banner i {
+  color: var(--accent);
+  font-size: 1.1rem;
+  flex: none;
+}
+/* Sales not open yet — gold "pending" treatment so the locked state is
+   unmissable (mirrors the pending-seat gold, not the accent blue). */
+.sale-banner.future {
+  border-color: rgba(227, 179, 65, 0.5);
+  background: var(--pending-bg);
+}
+.sale-banner.future i {
+  color: var(--pending);
+}
+.zone-opens {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: 0.35rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--border);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--pending);
+}
+.zone-opens i {
+  font-size: 0.68rem;
 }
 .map-head {
   display: flex;

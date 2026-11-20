@@ -40,6 +40,8 @@ export const en = {
   seat_bundle: "Bundle",
   sale_starts: "On sale {date}",
   sale_opens: "Sales open (all seats)",
+  sales_open: "Opens {date}",
+  zone_opens: "opens {date}",
   sale_starts_short: "On sale",
   error_not_on_sale: "Some selected seats are not on sale yet. Go back and check the seat map.",
   seat_rules: "Seat rules",
