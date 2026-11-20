@@ -106,3 +106,14 @@ export function widthForRowIndex(event, i, maxColumn) {
 export function rowIndexOfLabel(event, label) {
   return indexOfLabel(label);
 }
+
+/** Total seat capacity for an event = sum of every row's width (front rows
+ *  use their own count, regular rows use maxColumn). Used for the admin
+ *  "sold X / Y" fill indicator. */
+export function seatCapacity(event) {
+  const maxColumn = Math.max(1, Math.min(52, Math.floor(event?.fields?.MaxColumn || 26)));
+  const total = totalRowsOf(event);
+  let seats = 0;
+  for (let i = 0; i < total; i++) seats += widthForRowIndex(event, i, maxColumn);
+  return seats;
+}

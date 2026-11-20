@@ -437,6 +437,10 @@
             <span class="pill" :class="ev.fields.IsActive ? 'on' : 'off'">
               {{ ev.fields.IsActive ? t("status_active") : t("status_inactive") }}
             </span>
+            <span class="pill sold-pill" :class="soldPillClass(ev)">
+              <i class="fa-duotone fa-solid fa-chair"></i>
+              {{ soldSeats(ev) }} / {{ sellableCapacity(ev) }}
+            </span>
             <div class="er-actions">
               <button class="btn btn-sm" @click="edit(ev)">
                 <i class="fa-duotone fa-solid fa-pen"></i>
@@ -586,7 +590,7 @@ import {
   lockedSaleSeats,
   parseBundles,
 } from "../price.js";
-import { rowLabel, rowLabelToIndex, totalRowsOf } from "../layout.js";
+import { rowLabel, rowLabelToIndex, totalRowsOf, seatCapacity, widthForRowIndex } from "../layout.js";
 import { sanitizeRichText } from "../richText.js";
 import SeatGrid from "../components/SeatGrid.vue";
 const { t } = useI18n();
@@ -1020,10 +1024,52 @@ async function loadBookings() {
   for (const ev of events.value) {
     try {
       const recs = await listBookingsForEvent(ev.id);
-      for (const r of recs) r.fields._event = ev.fields.Title;
+      for (const r of recs) {
+        r.fields._event = ev.fields.Title;
+        r.fields._eventId = ev.id;
+      }
       bookings.value.push(...recs);
     } catch {}
   }
+}
+
+// Per-event sold-seat counts (non-cancelled bookings) + sellable capacity
+// (all seats minus reserved/locked rows, which can never be sold) — drives the
+// "sold X / Y" fill pill on each event row so multi-showtime days can be
+// eyeballed at a glance without opening each event.
+const soldByEvent = computed(() => {
+  const map = {};
+  for (const b of bookings.value) {
+    const id = b.fields._eventId;
+    if (id == null) continue;
+    const status = String(b.fields.Status || "").toLowerCase();
+    if (status === "cancelled") continue;
+    let n = Number(b.fields.SeatCount) || 0;
+    if (!n) {
+      try { n = (JSON.parse(b.fields.Seats) || []).length; } catch { n = 0; }
+    }
+    map[id] = (map[id] || 0) + n;
+  }
+  return map;
+});
+function soldSeats(ev) {
+  return soldByEvent.value[ev.id] || 0;
+}
+function sellableCapacity(ev) {
+  const maxCol = Math.max(1, Math.min(52, Math.floor(Number(ev.fields.MaxColumn) || 26)));
+  const reserved = reservedRowMap(ev);
+  const reservedSeats = Object.keys(reserved).reduce((sum, label) => {
+    const i = rowLabelToIndex(label);
+    return sum + (i >= 0 ? widthForRowIndex(ev, i, maxCol) : 0);
+  }, 0);
+  return Math.max(0, seatCapacity(ev) - reservedSeats);
+}
+function soldPillClass(ev) {
+  const cap = sellableCapacity(ev);
+  if (cap <= 0) return "off";
+  const pct = soldSeats(ev) / cap;
+  if (pct >= 1) return "on";
+  return pct >= 0.5 ? "mid" : "off";
 }
 
 async function unlock() {
@@ -1442,6 +1488,9 @@ onMounted(async () => {
 .pill.off {
   background: var(--occupied-bg);
   color: var(--muted);
+}
+.sold-pill i {
+  margin-right: 0.3rem;
 }
 .er-actions {
   display: flex;
