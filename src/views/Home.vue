@@ -223,10 +223,7 @@ onMounted(async () => {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  /* Saturated "ticket stub" stamp — reads on BOTH light and dark posters
-     (a white pill blended into cream posters; a dark pill vanished on the
-     dark theme). */
-  background: var(--accent);
+  background: var(--text);
   border: 1px solid rgba(255, 255, 255, 0.35);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   color: #06121f;
