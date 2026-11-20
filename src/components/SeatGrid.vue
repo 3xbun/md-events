@@ -20,7 +20,7 @@
         {{ reservedLegend }}
       </span>
       <span v-if="hasLocked" class="legend-item">
-        <i class="fa-solid fa-clock legend-locked"></i>
+        <i class="fa-solid fa-calendar legend-locked"></i>
         {{ t("seat_not_on_sale") }}
       </span>
       <span v-if="hasBundles" class="legend-item">
@@ -302,7 +302,7 @@ function seatState(r, c) {
 function seatIcon(r, c) {
   const st = seatState(r, c);
   if (st === "reserved") return "fa-duotone fa-solid fa-lock";
-  if (st === "locked") return "fa-solid fa-clock";
+  if (st === "locked") return "fa-solid fa-calendar";
   return "fa-solid fa-seat";
 }
 function seatEnabled(r, c) {
