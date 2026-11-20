@@ -744,11 +744,74 @@ const previewSelected = computed(() =>
   paintMode.value === "bundle" ? bundleDraft.value : []
 );
 
-// Resize + center-crop an uploaded image to 3:4 portrait (max 600x800 JPEG)
-// so it fits cleanly in NocoDB LongText and renders fast on the home page.
-// Errors (unsupported formats like HEIC/HEIF, decode failures) surface a
-// toast — before this the throw was invisible and "upload from file"
-// appeared to do nothing.
+// The Poster column is NocoDB LongText (100000 chars max). A poster is stored
+// as a base64 data URL, so the *string length* — not the JPEG byte count —
+// must stay under that cap. Detailed photos at 600x800 q0.82 blow past it
+// (~126k chars → "Value length ... exceeding allowed limit ... LongText"),
+// so we compress adaptively: step JPEG quality down, then drop width, until
+// the encoded string fits. Renders fast on the home page.
+const POSTER_MAX_LEN = 95000; // base64 chars — margin under the 100000 cap
+const POSTER_QUALITY_LADDER = [0.82, 0.72, 0.62, 0.52, 0.42, 0.34, 0.28];
+const POSTER_WIDTH_LADDER = [600, 520, 440, 360, 300];
+
+// Center-crop an image to 3:4 portrait; returns the source crop rect.
+function posterCropRect(img) {
+  const targetRatio = 3 / 4;
+  const srcRatio = img.width / img.height;
+  let sw = img.width;
+  let sh = img.height;
+  let sx = 0;
+  let sy = 0;
+  if (srcRatio > targetRatio) {
+    sw = Math.round(img.height * targetRatio);
+    sx = Math.round((img.width - sw) / 2);
+  } else if (srcRatio < targetRatio) {
+    sh = Math.round(img.width / targetRatio);
+    sy = Math.round((img.height - sh) / 2);
+  }
+  return { sx, sy, sw, sh };
+}
+
+// Encode a cropped image as a JPEG data URL guaranteed to be <= POSTER_MAX_LEN
+// chars, or null if even the smallest/lowest-quality pass is too big.
+function encodePoster(img) {
+  const c = posterCropRect(img);
+  for (const maxW of POSTER_WIDTH_LADDER) {
+    const outW = Math.min(maxW, c.sw);
+    const outH = Math.round((outW * 4) / 3);
+    if (!outW || !outH) continue;
+    const canvas = document.createElement("canvas");
+    canvas.width = outW;
+    canvas.height = outH;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, c.sx, c.sy, c.sw, c.sh, 0, 0, outW, outH);
+    for (const q of POSTER_QUALITY_LADDER) {
+      const url = canvas.toDataURL("image/jpeg", q);
+      if (url.length <= POSTER_MAX_LEN) return url;
+    }
+  }
+  return null;
+}
+
+// Re-compress an already-stored data URL that's over the LongText cap
+// (e.g. a record saved before adaptive compression existed, or a data URL
+// pasted into the URL field). Plain external URLs pass through untouched;
+// a data URL that can't be decoded is returned as-is so the NocoDB error
+// surfaces instead of silently losing the field.
+async function fitPosterToLimit(value) {
+  if (!value || !value.startsWith("data:")) return value || null;
+  if (value.length <= POSTER_MAX_LEN) return value;
+  const img = new Image();
+  const decoded = await new Promise((resolve) => {
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = value;
+  });
+  if (!decoded) return value;
+  const url = encodePoster(img);
+  return url || value;
+}
+
 function onPosterFile(e) {
   const file = e.target.files?.[0];
   e.target.value = "";
@@ -764,29 +827,14 @@ function onPosterFile(e) {
     };
     img.onload = () => {
       try {
-        const targetRatio = 3 / 4;
-        const srcRatio = img.width / img.height;
-        let sw = img.width;
-        let sh = img.height;
-        let sx = 0;
-        let sy = 0;
-        if (srcRatio > targetRatio) {
-          sw = Math.round(img.height * targetRatio);
-          sx = Math.round((img.width - sw) / 2);
-        } else if (srcRatio < targetRatio) {
-          sh = Math.round(img.width / targetRatio);
-          sy = Math.round((img.height - sh) / 2);
+        const url = encodePoster(img);
+        if (url) {
+          form.Poster = url;
+          showToast(t("poster_uploaded"));
+        } else {
+          console.error("poster too large after compression", file.name);
+          showToast(t("poster_too_large", { file: file.name }), "error", 6000);
         }
-        const maxW = 600;
-        const outW = Math.min(maxW, sw);
-        const outH = Math.round((outW * 4) / 3);
-        const canvas = document.createElement("canvas");
-        canvas.width = outW;
-        canvas.height = outH;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, outW, outH);
-        form.Poster = canvas.toDataURL("image/jpeg", 0.82);
-        showToast(t("poster_uploaded"));
       } catch (err) {
         console.error("poster crop failed", err);
         showToast(t("poster_unsupported", { file: file.name }), "error", 6000);
@@ -1139,10 +1187,15 @@ async function save() {
   saving.value = true;
   try {
     const total = Math.max(1, Math.min(100, Math.floor(Number(form.TotalRows) || 16)));
+    // Safety net: a data-URL poster over the LongText cap (pasted URL, or a
+    // record saved before adaptive compression) would 4xx on write. Re-encode
+    // it down; if it still won't fit, fall back to the raw value and let the
+    // error surface rather than silently dropping the image.
+    const poster = await fitPosterToLimit(String(form.Poster || "").trim());
     const fields = {
       Title: form.Title,
       Venue: form.Venue,
-      Poster: String(form.Poster || "").trim() || null,
+      Poster: poster || null,
       Description: sanitizeRichText(String(form.Description || "")) || null,
       ShowDate: form.ShowDate,
       StartTime: form.StartTime,
