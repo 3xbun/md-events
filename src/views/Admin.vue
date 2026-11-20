@@ -128,7 +128,7 @@
           </div>
           <div ref="descEditor" class="rt-editor" contenteditable="true" :data-placeholder="t('description_placeholder')" :data-empty="!String(form.Description||'').trim()" @input="onDescInput"></div>
         </div>
-        <div class="grid-2">
+        <div class="grid-3">
           <div class="field">
             <label>{{ t("show_date") }}</label>
             <input v-model="form.ShowDate" type="date" />
@@ -136,6 +136,10 @@
           <div class="field">
             <label>{{ t("show_time") }}</label>
             <input v-model.trim="form.StartTime" type="text" placeholder="20:00" />
+          </div>
+          <div class="field">
+            <label>{{ t("sale_opens") }}</label>
+            <input v-model.trim="form.SaleStarts" type="datetime-local" />
           </div>
         </div>
         <div class="grid-3">
@@ -654,6 +658,7 @@ const emptyForm = () => ({
   Description: "",
   ShowDate: "",
   StartTime: "",
+  SaleStarts: "",
   Price: 0,
   TotalRows: 16,
   MaxColumn: 26,
@@ -1107,6 +1112,7 @@ async function duplicate(ev) {
     Description: f.Description || null,
     ShowDate: f.ShowDate ? String(f.ShowDate).slice(0, 10) : null,
     StartTime: String(f.StartTime || "").trim() || null,
+    SaleStarts: String(f.SaleStarts || "").trim() || null,
     Price: Number(f.Price) || 0,
     MaxColumn: Number(f.MaxColumn) || 26,
     MaxSeats: Math.max(1, Math.floor(Number(f.MaxSeats) || 8)),
@@ -1247,6 +1253,7 @@ function edit(ev) {
   nextTick(paintDescription);
   form.ShowDate = normalizeDate(ev.fields.ShowDate);
   form.StartTime = ev.fields.StartTime || "";
+  form.SaleStarts = String(ev.fields.SaleStarts || "").trim();
   form.Price = Number(ev.fields.Price) || 0;
   // TotalRows is the size source; fall back to the legacy MaxRow letter for
   // events created before TotalRows existed.
@@ -1282,6 +1289,7 @@ async function save() {
       Description: sanitizeRichText(String(form.Description || "")) || null,
       ShowDate: form.ShowDate,
       StartTime: form.StartTime,
+      SaleStarts: String(form.SaleStarts || "").trim() || null,
       Price: Number(form.Price) || 0,
       TotalRows: total,
       MaxColumn: Number(form.MaxColumn) || 26,

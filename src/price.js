@@ -163,7 +163,8 @@ export function seatSaleStart(event, label) {
   for (const z of parseZones(event)) {
     if (z.sale && !z.reserved && idx >= z.fi && idx <= z.ti) return z.sale;
   }
-  return "";
+  // Base layer: event-wide sale start (single datetime string; empty = open).
+  return String(event?.fields?.SaleStarts || "").trim();
 }
 
 /** True if the seat is NOT yet on sale (future SaleStarts). Invalid/empty
