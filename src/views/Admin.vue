@@ -441,6 +441,9 @@
               <button class="btn btn-sm" @click="edit(ev)">
                 <i class="fa-duotone fa-solid fa-pen"></i>
               </button>
+              <button class="btn btn-sm" @click="duplicate(ev)">
+                <i class="fa-duotone fa-solid fa-clone"></i>
+              </button>
               <button class="btn btn-sm danger" @click="remove(ev)">
                 <i class="fa-duotone fa-solid fa-trash"></i>
               </button>
@@ -1044,6 +1047,40 @@ function resetForm() {
   nextTick(() => {
     if (descEditor.value) descEditor.value.innerHTML = "";
   });
+}
+
+// One-click clone for multi-showtime days: copies every hall/display field
+// (poster, zones, front rows, per-seat rules) from the source event and
+// creates it ACTIVE. The admin then just edits ShowDate/StartTime — seat
+// availability is per-event, so each showtime is a standalone event.
+async function duplicate(ev) {
+  const f = ev.fields || {};
+  const fields = {
+    Title: String(f.Title || "").trim(),
+    Venue: f.Venue || "",
+    Description: f.Description || null,
+    ShowDate: f.ShowDate ? String(f.ShowDate).slice(0, 10) : null,
+    StartTime: String(f.StartTime || "").trim() || null,
+    Price: Number(f.Price) || 0,
+    MaxColumn: Number(f.MaxColumn) || 26,
+    MaxSeats: Math.max(1, Math.floor(Number(f.MaxSeats) || 8)),
+    FrontRows: f.FrontRows || null,
+    Zones: f.Zones || null,
+    Poster: f.Poster || null,
+    SeatOverrides: f.SeatOverrides || null,
+    Bundles: f.Bundles || null,
+    IsActive: true,
+  };
+  if (Number(f.TotalRows)) fields.TotalRows = Number(f.TotalRows);
+  try {
+    await createEvent(fields);
+    await load();
+    showToast(t("duplicate_ok"));
+  } catch (e) {
+    console.error(e);
+    const msg = e?.response?.data?.message || e?.message || t("save_failed");
+    showToast(msg, "error", 6000);
+  }
 }
 
 function parseZonesField(raw) {

@@ -132,6 +132,7 @@ export const en = {
   poster_read_error: "Could not read “{file}”.",
   poster_unsupported: "Can’t process “{file}”. Use a JPG/PNG/WEBP image (phone HEIC photos must be converted).",
   poster_too_large: "“{file}” is still too large after compression. Use a smaller or less detailed image.",
+  duplicate_ok: "Event duplicated — set its date & showtime, then save.",
   saved_ok: "Saved.",
   save_failed: "Save failed — please try again.",
   status_active: "Active",
