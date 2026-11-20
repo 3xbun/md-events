@@ -302,7 +302,7 @@ function seatState(r, c) {
 function seatIcon(r, c) {
   const st = seatState(r, c);
   if (st === "reserved") return "fa-duotone fa-solid fa-lock";
-  if (st === "locked") return "fa-solid fa-calendar";
+  if (st === "locked") return "fa-regular fa-calendar";
   return "fa-solid fa-seat";
 }
 function seatEnabled(r, c) {
