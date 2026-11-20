@@ -74,7 +74,7 @@ import { ref, reactive, onMounted } from "vue";
 import { useI18n } from "../i18n.js";
 import { listActiveEvents } from "../api/events.js";
 import { formatPriceRange } from "../price.js";
-const { t } = useI18n();
+const { t, lang } = useI18n();
 
 const events = ref([]);
 const loading = ref(true);
@@ -83,7 +83,15 @@ const broken = reactive({});
 function fmtDate(ev) {
   const d = ev.fields.ShowDate;
   if (!d) return "";
-  return String(d).slice(0, 10);
+  const dt = new Date(String(d).slice(0, 10) + "T00:00:00");
+  if (Number.isNaN(dt.getTime())) return String(d).slice(0, 10);
+  // Human "MM DDD YYYY" (e.g. "01 Jan 2027" / "01 ม.ค. 2570") instead of the
+  // raw ISO string — the raw date was invisible on the poster badge.
+  return dt.toLocaleDateString(lang.value === "th" ? "th-TH" : "en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 onMounted(async () => {
@@ -214,18 +222,24 @@ onMounted(async () => {
   left: 0.6rem;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  background: rgba(13, 17, 23, 0.82);
-  backdrop-filter: blur(6px);
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.22rem 0.55rem;
+  gap: 0.4rem;
+  /* Saturated "ticket stub" stamp — reads on BOTH light and dark posters
+     (a white pill blended into cream posters; a dark pill vanished on the
+     dark theme). */
+  background: var(--accent);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  color: #06121f;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 0.3rem 0.7rem;
   border-radius: 999px;
+  white-space: nowrap;
 }
 .poster-date i {
-  color: var(--accent);
+  color: #06121f;
+  opacity: 0.75;
 }
 .event-body {
   flex: 1;
