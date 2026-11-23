@@ -152,6 +152,7 @@ export async function createBooking(eventId, booking) {
         Status: booking.Status ?? PENDING,
         CardLast4: booking.CardLast4,
         PaidAt: booking.PaidAt ?? null,
+        Slip: booking.Slip || null,
       },
     },
     { headers: hdrs() }

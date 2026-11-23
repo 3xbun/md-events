@@ -486,6 +486,9 @@
                 <i class="fa-duotone fa-solid fa-calendar-clock"></i>
                 {{ formatPaidAt(b.fields.PaidAt) }}
               </span>
+              <span v-if="b.fields.Slip" class="br-slip" :title="t('slip_view')">
+                <i class="fa-duotone fa-solid fa-file-invoice"></i>
+              </span>
             </div>
             <span class="pill" :class="statusPill(b.fields.Status)">
               {{ t(statusKeyOf(b.fields.Status)) }}
@@ -500,10 +503,10 @@
     <div
       v-if="activeBooking"
       class="modal-backdrop"
-      @click.self="activeBooking = null"
+      @click.self="closeBooking"
     >
       <div class="modal">
-        <button class="modal-close" aria-label="close" @click="activeBooking = null">
+        <button class="modal-close" aria-label="close" @click="closeBooking">
           <i class="fa-solid fa-xmark"></i>
         </button>
         <div class="modal-head">
@@ -536,6 +539,16 @@
             </span>
             <b>{{ formatPaidAt(activeBooking.fields.PaidAt) }}</b>
           </div>
+          <div v-if="activeBooking.fields.Slip" class="md-row md-row-slip">
+            <span>
+              <i class="fa-duotone fa-solid fa-file-invoice"></i>
+              {{ t("slip_label") }}
+            </span>
+            <button class="slip-view-btn" type="button" @click="openSlipViewer">
+              <i class="fa-solid fa-up-right-from-square"></i>
+              {{ t("slip_view") }}
+            </button>
+          </div>
           <div v-if="activeBooking.fields.Phone" class="md-row">
             <span>{{ t("phone") }}</span>
             <b>{{ formatPhone(activeBooking.fields.Phone) || activeBooking.fields.Phone }}</b>
@@ -560,6 +573,18 @@
           </button>
         </div>
       </div>
+    </div>
+
+    <!-- slip lightbox (over the booking modal) -->
+    <div
+      v-if="slipViewerUrl"
+      class="slip-viewer-backdrop"
+      @click.self="slipViewerUrl = ''"
+    >
+      <img :src="slipViewerUrl" :alt="t('slip_label')" />
+      <button class="slip-viewer-close" type="button" aria-label="close" @click="slipViewerUrl = ''">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
     </div>
 
     <!-- global feedback toast (outside the modal backdrop, which is
@@ -605,6 +630,7 @@ const pinError = ref(false);
 const events = ref([]);
 const bookings = ref([]);
 const activeBooking = ref(null);
+const slipViewerUrl = ref("");
 const editingId = ref(null);
 const saving = ref(false);
 const busyId = ref(null);
@@ -973,6 +999,22 @@ const isPending = (s) => String(s || "").toLowerCase() === "pending";
 
 function openBooking(b) {
   activeBooking.value = b;
+  slipViewerUrl.value = "";
+}
+
+function closeBooking() {
+  activeBooking.value = null;
+  slipViewerUrl.value = "";
+}
+
+function openSlipViewer() {
+  const slip = activeBooking.value?.fields?.Slip;
+  if (typeof slip === "string" && slip.startsWith("data:")) {
+    slipViewerUrl.value = slip;
+  } else if (slip) {
+    // External URL fallback (a Slip saved as an image URL, not a data URL).
+    window.open(slip, "_blank", "noopener");
+  }
 }
 
 async function confirmBooking(b) {
@@ -1576,6 +1618,19 @@ onMounted(async () => {
   color: var(--muted);
   font-size: 0.8rem;
 }
+.br-slip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  align-self: flex-start;
+  margin-top: 0.1rem;
+  color: var(--accent-soft);
+  background: rgba(58, 151, 222, 0.14);
+  border: 1px solid rgba(58, 151, 222, 0.45);
+  border-radius: 6px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.74rem;
+}
 /* booking detail modal */
 .modal-backdrop {
   position: fixed;
@@ -1671,6 +1726,71 @@ onMounted(async () => {
 .modal-actions {
   display: flex;
   gap: 0.6rem;
+}
+/* slip row in the booking modal + full-size lightbox */
+.md-row-slip {
+  background: rgba(58, 151, 222, 0.1);
+  border: 1.5px solid rgba(58, 151, 222, 0.45);
+  border-radius: 9px;
+  padding: 0.5rem 0.65rem;
+}
+.md-row-slip span {
+  color: var(--accent-soft);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.slip-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid rgba(58, 151, 222, 0.55);
+  background: var(--accent-bg);
+  color: var(--accent-soft);
+  border-radius: 8px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.slip-view-btn:hover {
+  border-color: var(--accent-soft);
+}
+.slip-viewer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 1.5rem;
+}
+.slip-viewer-backdrop img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 8px;
+  object-fit: contain;
+}
+.slip-viewer-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.slip-viewer-close:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 .modal-actions .btn {
   flex: 1;

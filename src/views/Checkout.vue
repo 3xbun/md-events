@@ -99,6 +99,43 @@
             required
           />
         </div>
+        <div class="slip-box">
+          <label class="slip-label" for="slip-file">
+            <i class="fa-duotone fa-solid fa-file-invoice"></i>
+            {{ t("slip_label") }}
+          </label>
+          <p class="slip-hint">{{ t("slip_hint") }}</p>
+          <div v-if="!slipUrl" class="slip-drop">
+            <label
+              class="slip-picker"
+              :class="{ uploading: slipUploading }"
+              for="slip-file"
+            >
+              <i
+                :class="
+                  slipUploading
+                    ? 'fa-solid fa-spinner fa-spin'
+                    : 'fa-duotone fa-solid fa-camera'
+                "
+              ></i>
+              <span>{{ slipUploading ? t("processing") : t("slip_pick") }}</span>
+            </label>
+          </div>
+          <div v-else class="slip-preview">
+            <img :src="slipUrl" :alt="t('slip_label')" />
+            <button class="slip-remove" type="button" @click="clearSlip">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <input
+            id="slip-file"
+            ref="slipInput"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/*"
+            hidden
+            @change="onSlipFile"
+          />
+        </div>
         <p class="hint-line">{{ t("bank_transfer_to") }}</p>
         <p class="expire-note">
           <i class="fa-duotone fa-solid fa-clock"></i>
@@ -129,6 +166,7 @@ import { getEvent } from "../api/events.js";
 import { createBooking, formatPhone } from "../api/bookings.js";
 import { getSelection, clearSelection } from "../selection.js";
 import { totalForSeats, seatPrice, parseBundles, seatNotYetOnSale } from "../price.js";
+import { fileToImage, encodeToDataUrl } from "../images.js";
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
@@ -142,6 +180,44 @@ const bankCopied = ref(false);
 const BANK_NAME = "ธนาคารกรุงเทพ";
 const BANK_ACCOUNT_NAME = "โรงเรียนมาแตร์เดอีวิทยาลัย";
 const BANK_NUMBER = "911-019-3464";
+
+// ── Bank-transfer slip (customer-uploaded proof of payment) ──────────────
+// Stored as a compressed JPEG data URL in bookings.Slip (NocoDB LongText).
+const slipUrl = ref("");
+const slipUploading = ref(false);
+const slipInput = ref(null);
+
+async function onSlipFile(e) {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file) return;
+  if (!/^image\//.test(file.type)) {
+    error.value = t("slip_unsupported", { file: file.name });
+    return;
+  }
+  slipUploading.value = true;
+  error.value = "";
+  try {
+    const img = await fileToImage(file);
+    const url = encodeToDataUrl(img);
+    if (url) {
+      slipUrl.value = url;
+    } else {
+      console.error("slip too large after compression", file.name);
+      error.value = t("slip_too_large", { file: file.name });
+    }
+  } catch {
+    console.error("slip read failed", file.name);
+    error.value = t("slip_read_error", { file: file.name });
+  } finally {
+    slipUploading.value = false;
+  }
+}
+
+function clearSlip() {
+  slipUrl.value = "";
+  if (slipInput.value) slipInput.value.value = "";
+}
 
 function nowLocalIso() {
   const d = new Date();
@@ -230,6 +306,7 @@ async function pay() {
       Status: "pending",
       BookingCode: code,
       PaidAt: String(form.paidAt || "").trim(),
+      Slip: slipUrl.value || null,
     });
     clearSelection();
     router.push(`/confirmation/${code}`);
@@ -462,6 +539,85 @@ onMounted(async () => {
 .paid-at-input:focus {
   outline: none;
   border-color: var(--gold);
+}
+.slip-box {
+  background: rgba(58, 151, 222, 0.1);
+  border: 1.5px solid rgba(58, 151, 222, 0.45);
+  border-radius: 10px;
+  padding: var(--box-pad);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.slip-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--accent-soft);
+}
+.slip-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.slip-drop {
+  display: flex;
+  justify-content: center;
+}
+.slip-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--surface);
+  border: 1px dashed rgba(58, 151, 222, 0.55);
+  border-radius: 9px;
+  padding: 0.7rem 1.1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent-soft);
+  cursor: pointer;
+  width: 100%;
+  justify-content: center;
+}
+.slip-picker:hover {
+  border-color: var(--accent-soft);
+}
+.slip-picker.uploading {
+  opacity: 0.7;
+  cursor: wait;
+}
+.slip-preview {
+  position: relative;
+  max-width: 100%;
+}
+.slip-preview img {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+}
+.slip-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(6, 18, 31, 0.75);
+  color: #fff;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.slip-remove:hover {
+  background: var(--danger);
 }
 @media (max-width: 480px) {
   .page-title {
