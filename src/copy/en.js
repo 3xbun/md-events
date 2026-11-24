@@ -187,6 +187,9 @@ export const en = {
   confirm_payment: "Confirm payment",
   cancel_booking: "Cancel",
   confirm_cancel_booking: "Cancel this booking and release its seats?",
+  cancel_my_reservation: "Cancel this reservation",
+  confirm_cancel_my_reservation: "Cancel this reservation and release its seats?",
+  cancel_confirmed: "Cancel reservation (release seats)",
   lang_th: "ไทย",
   lang_en: "EN",
 };

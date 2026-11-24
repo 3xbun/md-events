@@ -125,6 +125,14 @@
         {{ t("payment_expire_note") }}
       </p>
 
+      <!-- Customer self-service cancellation (pending or confirmed) -->
+      <div v-if="statusKey === 'pending' || statusKey === 'confirmed'" class="cancel-wrap">
+        <button class="btn btn-cancel-res" type="button" @click="cancelMyBooking">
+          <i class="fa-duotone fa-solid fa-xmark"></i>
+          {{ t("cancel_my_reservation") }}
+        </button>
+      </div>
+
       <!-- Share & device-storage actions (same pattern as md-exhibition My Badge) -->
       <div class="res-actions">
         <button class="btn" type="button" @click="shareOpen = !shareOpen">
@@ -205,6 +213,7 @@ import QrCanvas from "../components/QrCanvas.vue";
 import {
   findBookingByCode,
   isConfirmedStatus,
+  setBookingStatus,
   formatPaidAt,
   formatCreatedAt,
 } from "../api/bookings.js";
@@ -225,6 +234,7 @@ const linkCopied = ref(false);
 const isMine = ref(false);
 const shareOpen = ref(false);
 const sentDone = ref(false);
+const cancelling = ref(false);
 // True once a pending booking flips to confirmed while the customer is still
 // watching — lets us hide the "checking payment" spinner.
 const confirmedJustNow = ref(false);
@@ -344,6 +354,25 @@ function confirmSent() {
   removeMyReservation(code);
   sentDone.value = true;
   isMine.value = false;
+}
+
+// Customer self-service cancellation: flips the booking to cancelled, which
+// frees its seats for anyone else. Pending OR confirmed bookings can be
+// cancelled this way.
+async function cancelMyBooking() {
+  if (cancelling.value || !booking.value?.id) return;
+  if (!confirm(t("confirm_cancel_my_reservation"))) return;
+  cancelling.value = true;
+  try {
+    await setBookingStatus(booking.value.id, "cancelled");
+    const b = await findBookingByCode(String(booking.value.fields.BookingCode));
+    if (b) booking.value = b;
+    stopPoll();
+  } catch (e) {
+    console.error(e);
+  } finally {
+    cancelling.value = false;
+  }
 }
 
 // While the booking is pending, poll every 5s (max 10 min) so the page flips
@@ -541,6 +570,17 @@ onBeforeUnmount(() => {
   background: var(--danger-bg);
   border-color: var(--danger-border);
   color: var(--danger);
+}
+.cancel-wrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+.btn-cancel-res {
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+  color: var(--danger);
+  font-weight: 700;
 }
 .share-card {
   width: 100%;

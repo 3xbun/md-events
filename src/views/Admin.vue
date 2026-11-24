@@ -484,6 +484,10 @@
           >
             <div class="br-info">
               <span class="br-name">{{ b.fields.CustomerName }}</span>
+              <span v-if="b.fields._showDate || b.fields._startTime" class="br-showtime">
+                <i class="fa-duotone fa-solid fa-calendar-day"></i>
+                {{ b.fields._showDate }}{{ b.fields._startTime ? " · " + b.fields._startTime : "" }}
+              </span>
               <span class="br-meta">
                 {{ b.fields._event }} · {{ Number(b.fields.Total) || 0 }} ฿
               </span>
@@ -532,6 +536,12 @@
           <div class="md-row">
             <span>{{ t("event_name") }}</span>
             <b>{{ activeBooking.fields._event }}</b>
+          </div>
+          <div v-if="activeBooking.fields._showDate || activeBooking.fields._startTime" class="md-row">
+            <span>{{ t("show_time") }}</span>
+            <b>
+              {{ activeBooking.fields._showDate }}{{ activeBooking.fields._startTime ? " · " + activeBooking.fields._startTime : "" }}
+            </b>
           </div>
           <div class="md-row">
             <span>{{ t("your_seats") }}</span>
@@ -651,6 +661,17 @@
           >
             <i class="fa-duotone fa-solid fa-xmark"></i>
             {{ t("cancel_booking") }}
+          </button>
+        </div>
+        <!-- confirmed bookings: admin can still cancel (releases the seats) -->
+        <div v-else-if="isConfirmed(activeBooking.fields.Status)" class="modal-actions">
+          <button
+            class="btn danger"
+            :disabled="busyId === activeBooking.id"
+            @click="cancelBooking(activeBooking)"
+          >
+            <i class="fa-duotone fa-solid fa-xmark"></i>
+            {{ t("cancel_confirmed") }}
           </button>
         </div>
       </div>
@@ -1120,6 +1141,8 @@ const statusPill = (s) => {
   return "mid"; // pending + legacy reserved
 };
 const isPending = (s) => String(s || "").toLowerCase() === "pending";
+const isConfirmed = (s) =>
+  ["confirmed", "paid"].includes(String(s || "").toLowerCase());
 
 function openBooking(b) {
   activeBooking.value = b;
@@ -1235,6 +1258,8 @@ async function loadBookings() {
       for (const r of recs) {
         r.fields._event = ev.fields.Title;
         r.fields._eventId = ev.id;
+        r.fields._showDate = String(ev.fields.ShowDate || "").slice(0, 10);
+        r.fields._startTime = String(ev.fields.StartTime || "").trim();
       }
       bookings.value.push(...recs);
     } catch {}
@@ -1755,6 +1780,20 @@ onMounted(async () => {
 .br-name {
   font-weight: 600;
   font-size: 0.88rem;
+}
+.br-showtime {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--accent-soft);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 6px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  font-family: monospace;
+  align-self: flex-start;
 }
 .br-meta {
   color: var(--muted);

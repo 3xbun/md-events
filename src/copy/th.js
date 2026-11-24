@@ -124,6 +124,8 @@ export const th = {
   confirm_payment: "ยืนยันการชำระเงิน",
   cancel_booking: "ยกเลิก",
   confirm_cancel_booking: "ยกเลิกการจองและคืนที่นั่งใช่หรือไม่?",
+  cancel_my_reservation: "ยกเลิกการจอง",
+  confirm_cancel_my_reservation: "ยกเลิกการจองและคืนที่นั่งใช่หรือไม่?",
   cancelled: "ยกเลิกแล้ว",
   lang_th: "ไทย",
   lang_en: "EN",
