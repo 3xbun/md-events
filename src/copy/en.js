@@ -93,6 +93,9 @@ export const en = {
   notes: "Notes",
   log_payment: "Log payment",
   log_payment_saved: "Payment details saved.",
+  finance_call_zone: "Finance call",
+  finance_call_zone_hint:
+    "Reserve without showing bank details; finance calls customer to arrange payment",
   confirm_reserve: "Reserve seats",
   finance_reserve_note:
     "Please reserve with your name and phone number. Our finance team will call you to give the payment instructions. Your seats are held until the booking is confirmed.",

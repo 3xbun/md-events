@@ -181,7 +181,13 @@ import { useI18n } from "../i18n.js";
 import { getEvent } from "../api/events.js";
 import { createBooking, formatPhone } from "../api/bookings.js";
 import { getSelection, clearSelection } from "../selection.js";
-import { totalForSeats, seatPrice, parseBundles, seatNotYetOnSale } from "../price.js";
+import {
+  totalForSeats,
+  seatPrice,
+  parseBundles,
+  seatNotYetOnSale,
+  isFinanceCallSeat,
+} from "../price.js";
 import { fileToImage, encodeToDataUrl } from "../images.js";
 const { t } = useI18n();
 const route = useRoute();
@@ -255,21 +261,21 @@ function onPhoneInput(e) {
 
 const total = computed(() => totalForSeats(event.value, seats.value));
 
-// Finance flow: the whole selection is made up of COMPLETE bundle pairs.
-// For linked seats the customer does NOT see bank details — they reserve with
-// name + phone, and finance calls them with payment instructions, then
-// confirms the booking in the admin.
+// Finance flow: every selected seat is either part of a complete bundle pair
+// OR sits in a finance-call zone (e.g. rows L–M). For these seats the customer
+// does NOT see bank details — they reserve with name + phone, and finance
+// calls them with payment instructions, then confirms the booking in the admin.
 const financeFlow = computed(() => {
   if (!event.value || !seats.value.length) return false;
   const bundles = parseBundles(event.value);
-  if (!bundles.length) return false;
   const seatSet = new Set(seats.value);
   const covered = new Set();
   for (const b of bundles) {
     if (b.seats.every((s) => seatSet.has(s))) b.seats.forEach((s) => covered.add(s));
   }
-  // every selected seat belongs to a fully-selected bundle
-  return seats.value.every((s) => covered.has(s));
+  return seats.value.every(
+    (s) => covered.has(s) || isFinanceCallSeat(event.value, s)
+  );
 });
 
 // Summary chips: a fully-selected bundle collapses into ONE chip at the

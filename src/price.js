@@ -50,6 +50,7 @@ export function parseZones(event) {
     const reserved = String(entry.ReservedFor ?? entry.reservedFor ?? "").trim();
     const color = String(entry.Color ?? entry.color ?? "").trim();
     const sale = String(entry.SaleStarts ?? entry.saleStarts ?? "").trim();
+    const financeCall = Boolean(entry.FinanceCall ?? entry.financeCall);
     let fi = rowLabelToIndex(from) - 1;
     let ti = rowLabelToIndex(to) - 1;
     if (fi < 0) continue;
@@ -58,10 +59,24 @@ export function parseZones(event) {
       ti = ti < fi ? fi : ti;
     }
     if (ti < fi) ti = fi; // single-row zone
-    out.push({ fi, ti, from, to, price, color, reserved, sale });
+    out.push({ fi, ti, from, to, price, color, reserved, sale, financeCall });
   }
   // sort by first row for stable display
   return out.sort((a, b) => a.fi - b.fi);
+}
+
+/** True if seat `label` sits in a zone with `FinanceCall: true`. */
+export function isFinanceCallSeat(event, label) {
+  const sp = splitSeat(label);
+  if (!sp) return false;
+  const idx = rowLabelToIndex(sp.row) - 1;
+  if (idx < 0) return false;
+  for (const z of parseZones(event)) {
+    if (!z.reserved && idx >= z.fi && idx <= z.ti) {
+      return Boolean(z.financeCall);
+    }
+  }
+  return false;
 }
 
 // ── Per-seat rules (overrides + bundles) ──────────────────────────────

@@ -250,6 +250,11 @@
                 class="zone-reserved"
                 :placeholder="t('reserved_for_placeholder')"
               />
+              <label v-if="!z.ReservedFor" class="zone-finance-toggle" :title="t('finance_call_zone_hint')">
+                <input v-model="z.FinanceCall" type="checkbox" />
+                <i class="fa-duotone fa-solid fa-phone-volume"></i>
+                <span>{{ t("finance_call_zone") }}</span>
+              </label>
             </div>
           </div>
           <div v-if="uncoveredRows" class="zones-warn">
@@ -568,6 +573,40 @@
               :value="bookPaidAt"
               @input="bookPaidAt = $event.target.value"
             />
+            <label class="finance-log-label" for="admin-slip-file">
+              <i class="fa-duotone fa-solid fa-file-invoice"></i>
+              {{ t("slip_label") }}
+            </label>
+            <div v-if="!bookSlipUrl" class="admin-slip-drop">
+              <label
+                class="admin-slip-picker"
+                :class="{ uploading: bookSlipUploading }"
+                for="admin-slip-file"
+              >
+                <i
+                  :class="
+                    bookSlipUploading
+                      ? 'fa-solid fa-spinner fa-spin'
+                      : 'fa-duotone fa-solid fa-camera'
+                  "
+                ></i>
+                <span>{{ bookSlipUploading ? t("saving") : t("slip_pick") }}</span>
+              </label>
+            </div>
+            <div v-else class="admin-slip-preview">
+              <img :src="bookSlipUrl" :alt="t('slip_label')" @click="slipViewerUrl = bookSlipUrl" />
+              <button class="admin-slip-remove" type="button" @click="clearAdminSlip">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+            <input
+              id="admin-slip-file"
+              ref="adminSlipInput"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/*"
+              hidden
+              @change="onAdminSlipFile"
+            />
             <label class="finance-log-label">
               <i class="fa-duotone fa-solid fa-pen"></i>
               {{ t("notes") }}
@@ -656,6 +695,7 @@ import {
 } from "../price.js";
 import { rowLabel, rowLabelToIndex, totalRowsOf, seatCapacity, widthForRowIndex } from "../layout.js";
 import { sanitizeRichText } from "../richText.js";
+import { fileToImage, encodeToDataUrl } from "../images.js";
 import SeatGrid from "../components/SeatGrid.vue";
 const { t } = useI18n();
 
@@ -669,10 +709,42 @@ const slipViewerUrl = ref("");
 const editingId = ref(null);
 const saving = ref(false);
 const busyId = ref(null);
-// Finance payment logging (pending bookings): transfer date + notes captured
+// Finance payment logging (pending bookings): transfer date + slip + notes captured
 // when finance confirms over the phone.
 const bookPaidAt = ref("");
 const bookNotes = ref("");
+const bookSlipUrl = ref("");
+const bookSlipUploading = ref(false);
+const adminSlipInput = ref(null);
+
+async function onAdminSlipFile(e) {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file) return;
+  if (!/^image\//.test(file.type)) {
+    showToast(t("slip_unsupported", { file: file.name }), "error");
+    return;
+  }
+  bookSlipUploading.value = true;
+  try {
+    const img = await fileToImage(file);
+    const url = encodeToDataUrl(img);
+    if (url) {
+      bookSlipUrl.value = url;
+    } else {
+      showToast(t("slip_too_large", { file: file.name }), "error");
+    }
+  } catch {
+    showToast(t("slip_read_error", { file: file.name }), "error");
+  } finally {
+    bookSlipUploading.value = false;
+  }
+}
+
+function clearAdminSlip() {
+  bookSlipUrl.value = "";
+  if (adminSlipInput.value) adminSlipInput.value.value = "";
+}
 
 // ── Toast (visible feedback; save/poster errors were silently swallowed
 // before — console.error only). ────────────────────────────────────────────
@@ -937,6 +1009,7 @@ function addZone(locked = false) {
     Color: "",
     SaleStarts: "",
     ReservedFor: locked ? t("zone_staff") : "",
+    FinanceCall: false,
   });
 }
 function removeZone(i) {
@@ -992,6 +1065,9 @@ const previewEvent = computed(() => ({
               ...(String(z.ReservedFor || "").trim()
                 ? { ReservedFor: String(z.ReservedFor).trim() }
                 : {}),
+              ...(z.FinanceCall && !String(z.ReservedFor || "").trim()
+                ? { FinanceCall: true }
+                : {}),
             }))
         )
       : null,
@@ -1041,6 +1117,7 @@ function openBooking(b) {
   slipViewerUrl.value = "";
   bookPaidAt.value = String(b.fields.PaidAt || "").slice(0, 16);
   bookNotes.value = String(b.fields.Notes || "");
+  bookSlipUrl.value = String(b.fields.Slip || "");
 }
 
 function closeBooking() {
@@ -1065,9 +1142,11 @@ async function logPayment(b) {
     const paid = String(bookPaidAt.value || "").trim();
     if (paid) fields.PaidAt = paid;
     fields.Notes = bookNotes.value.trim() || null;
+    fields.Slip = bookSlipUrl.value || null;
     await updateBookingFields(b.id, fields);
     b.fields.PaidAt = paid || b.fields.PaidAt;
     b.fields.Notes = fields.Notes;
+    b.fields.Slip = fields.Slip;
     showToast(t("log_payment_saved"));
   } catch (e) {
     console.error(e);
@@ -1086,10 +1165,14 @@ async function confirmBooking(b) {
     if (bookNotes.value !== undefined) {
       fields.Notes = bookNotes.value.trim() || null;
     }
+    if (bookSlipUrl.value !== undefined) {
+      fields.Slip = bookSlipUrl.value || null;
+    }
     await updateBookingFields(b.id, fields);
     b.fields.Status = "confirmed";
     if (paid) b.fields.PaidAt = paid;
     if (bookNotes.value !== undefined) b.fields.Notes = fields.Notes;
+    if (bookSlipUrl.value !== undefined) b.fields.Slip = fields.Slip;
   } catch (e) {
     console.error(e);
     showToast(t("save_failed"), "error");
@@ -1266,6 +1349,7 @@ function parseZonesField(raw) {
       Color: String(e.Color ?? e.color ?? ""),
       SaleStarts: String(e.SaleStarts ?? e.saleStarts ?? "").trim(),
       ReservedFor: String(e.ReservedFor ?? e.reservedFor ?? "").trim(),
+      FinanceCall: Boolean(e.FinanceCall ?? e.financeCall),
     }));
 }
 
@@ -1420,6 +1504,9 @@ async function save() {
                 ...(String(z.SaleStarts || "").trim() ? { SaleStarts: String(z.SaleStarts).trim() } : {}),
                 ...(String(z.ReservedFor || "").trim()
                   ? { ReservedFor: String(z.ReservedFor).trim() }
+                  : {}),
+                ...(z.FinanceCall && !String(z.ReservedFor || "").trim()
+                  ? { FinanceCall: true }
                   : {}),
               }))
           )
@@ -1837,6 +1924,82 @@ onMounted(async () => {
   align-self: flex-start;
   padding: 0.45rem 0.9rem;
   font-size: 0.85rem;
+}
+.admin-slip-drop {
+  display: flex;
+}
+.admin-slip-picker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  background: var(--surface);
+  border: 1px dashed rgba(58, 151, 222, 0.55);
+  border-radius: 8px;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--accent-soft);
+  cursor: pointer;
+}
+.admin-slip-picker:hover {
+  border-color: var(--accent-soft);
+}
+.admin-slip-picker.uploading {
+  opacity: 0.7;
+  cursor: wait;
+}
+.admin-slip-preview {
+  position: relative;
+  display: inline-block;
+  max-width: 180px;
+}
+.admin-slip-preview img {
+  display: block;
+  width: 100%;
+  max-height: 150px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+.admin-slip-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(6, 18, 31, 0.8);
+  color: #fff;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.admin-slip-remove:hover {
+  background: var(--danger);
+}
+.zone-finance-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent-soft);
+  background: rgba(58, 151, 222, 0.1);
+  border: 1px solid rgba(58, 151, 222, 0.35);
+  border-radius: 7px;
+  padding: 0.3rem 0.55rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.zone-finance-toggle input {
+  width: auto;
+  margin: 0;
 }
 .modal-actions {
   display: flex;
