@@ -20,11 +20,11 @@
           {{ t("customer_info") }}
         </h2>
         <div class="field">
-          <label>{{ t("customer_name") }}</label>
-          <input v-model.trim="form.name" type="text" autocomplete="name" />
+          <label>{{ t("customer_name") }} <span class="req">*</span></label>
+          <input v-model.trim="form.name" type="text" autocomplete="name" required />
         </div>
         <div class="field">
-          <label>{{ t("phone") }}</label>
+          <label>{{ t("phone") }} <span class="req">*</span></label>
           <input
             :value="form.phone"
             type="tel"
@@ -32,6 +32,7 @@
             autocomplete="tel"
             maxlength="12"
             placeholder="0xx-xxx-xxxx"
+            required
             @input="onPhoneInput"
           />
         </div>
@@ -310,13 +311,13 @@ function copyBank() {
     .catch(() => {});
 }
 
-// Require customer contact (name or phone). Normal seats also need the
+// Require BOTH customer name AND phone. Normal seats also need the
 // transfer date/time; finance-flow (linked) seats skip it — finance records
 // it later when they call the customer.
 const valid = computed(
   () =>
-    (form.name.trim().length >= 2 ||
-      form.phone.replace(/\D/g, "").length >= 9) &&
+    form.name.trim().length >= 2 &&
+    form.phone.replace(/\D/g, "").length >= 9 &&
     (financeFlow.value || Boolean(String(form.paidAt || "").trim()))
 );
 
@@ -425,6 +426,10 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 0.45rem;
+}
+.req {
+  color: var(--danger);
+  font-weight: 700;
 }
 .customer-section .field:last-child {
   margin-bottom: 0;
