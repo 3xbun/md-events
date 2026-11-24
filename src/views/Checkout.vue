@@ -60,6 +60,21 @@
           </div>
         </div>
 
+        <!-- Finance flow (linked/bundle seats): no bank details shown at
+             reserve. Customer gives name + phone; finance calls them with
+             payment instructions and confirms the booking in the admin. -->
+        <div v-if="financeFlow" class="finance-box">
+          <p class="finance-note">
+            <i class="fa-duotone fa-solid fa-phone-volume"></i>
+            {{ t("finance_reserve_note") }}
+          </p>
+          <p class="finance-wait">
+            <i class="fa-duotone fa-solid fa-clock"></i>
+            {{ t("finance_expire_note") }}
+          </p>
+        </div>
+
+        <template v-else>
         <p class="bank-note">
           {{ t("bank_transfer_note") }}
         </p>
@@ -136,11 +151,12 @@
             @change="onSlipFile"
           />
         </div>
-        <p class="hint-line">{{ t("bank_transfer_to") }}</p>
-        <p class="expire-note">
+        <p v-if="!financeFlow" class="hint-line">{{ t("bank_transfer_to") }}</p>
+        <p v-if="!financeFlow" class="expire-note">
           <i class="fa-duotone fa-solid fa-clock"></i>
           {{ t("payment_expire_note") }}
         </p>
+        </template>
 
         <button class="btn btn-primary" :disabled="!valid || paying" @click="pay">
           <i
@@ -150,7 +166,7 @@
                 : 'fa-duotone fa-solid fa-circle-check'
             "
           ></i>
-          {{ paying ? t("processing") : t("confirm_transfer") }}
+          {{ paying ? t("processing") : financeFlow ? t("confirm_reserve") : t("confirm_transfer") }}
         </button>
         <div v-if="error" class="error">{{ error || t("error_generic") }}</div>
       </section>
@@ -239,6 +255,23 @@ function onPhoneInput(e) {
 
 const total = computed(() => totalForSeats(event.value, seats.value));
 
+// Finance flow: the whole selection is made up of COMPLETE bundle pairs.
+// For linked seats the customer does NOT see bank details — they reserve with
+// name + phone, and finance calls them with payment instructions, then
+// confirms the booking in the admin.
+const financeFlow = computed(() => {
+  if (!event.value || !seats.value.length) return false;
+  const bundles = parseBundles(event.value);
+  if (!bundles.length) return false;
+  const seatSet = new Set(seats.value);
+  const covered = new Set();
+  for (const b of bundles) {
+    if (b.seats.every((s) => seatSet.has(s))) b.seats.forEach((s) => covered.add(s));
+  }
+  // every selected seat belongs to a fully-selected bundle
+  return seats.value.every((s) => covered.has(s));
+});
+
 // Summary chips: a fully-selected bundle collapses into ONE chip at the
 // bundle price; other seats price individually (override -> zone -> base).
 const chipGroups = computed(() => {
@@ -270,12 +303,14 @@ function copyBank() {
     .catch(() => {});
 }
 
-// Require customer contact (name or phone) + transfer date/time.
+// Require customer contact (name or phone). Normal seats also need the
+// transfer date/time; finance-flow (linked) seats skip it — finance records
+// it later when they call the customer.
 const valid = computed(
   () =>
     (form.name.trim().length >= 2 ||
       form.phone.replace(/\D/g, "").length >= 9) &&
-    Boolean(String(form.paidAt || "").trim())
+    (financeFlow.value || Boolean(String(form.paidAt || "").trim()))
 );
 
 function goBack() {
@@ -305,8 +340,10 @@ async function pay() {
       Total: total.value,
       Status: "pending",
       BookingCode: code,
-      PaidAt: String(form.paidAt || "").trim(),
-      Slip: slipUrl.value || null,
+      // Finance flow: no transfer date/slip at reserve — finance logs the
+      // payment details later (admin) once the customer pays.
+      PaidAt: financeFlow.value ? null : String(form.paidAt || "").trim(),
+      Slip: financeFlow.value ? null : slipUrl.value || null,
     });
     clearSelection();
     router.push(`/confirmation/${code}`);
@@ -441,6 +478,38 @@ onMounted(async () => {
   margin: 0;
 }
 .bank-note i {
+  margin-top: 0.1rem;
+}
+.finance-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.finance-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  color: var(--accent-soft);
+  background: rgba(58, 151, 222, 0.12);
+  border: 1.5px solid rgba(58, 151, 222, 0.45);
+  border-radius: 9px;
+  padding: 0.7rem 0.75rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin: 0;
+}
+.finance-note i {
+  margin-top: 0.12rem;
+}
+.finance-wait {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin: 0;
+}
+.finance-wait i {
   margin-top: 0.1rem;
 }
 .bank-box {

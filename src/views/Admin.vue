@@ -553,6 +553,40 @@
             <span>{{ t("phone") }}</span>
             <b>{{ formatPhone(activeBooking.fields.Phone) || activeBooking.fields.Phone }}</b>
           </div>
+          <div v-if="activeBooking.fields.Notes" class="md-row">
+            <span>{{ t("notes") }}</span>
+            <b>{{ activeBooking.fields.Notes }}</b>
+          </div>
+          <div v-if="isPending(activeBooking.fields.Status)" class="finance-log">
+            <label class="finance-log-label">
+              <i class="fa-duotone fa-solid fa-calendar-clock"></i>
+              {{ t("paid_at") }}
+            </label>
+            <input
+              type="datetime-local"
+              class="finance-log-input"
+              :value="bookPaidAt"
+              @input="bookPaidAt = $event.target.value"
+            />
+            <label class="finance-log-label">
+              <i class="fa-duotone fa-solid fa-pen"></i>
+              {{ t("notes") }}
+            </label>
+            <textarea
+              class="finance-log-notes"
+              rows="2"
+              :value="bookNotes"
+              @input="bookNotes = $event.target.value"
+            ></textarea>
+            <button
+              class="btn"
+              :disabled="busyId === activeBooking.id"
+              @click="logPayment(activeBooking)"
+            >
+              <i class="fa-duotone fa-solid fa-floppy-disk"></i>
+              {{ t("log_payment") }}
+            </button>
+          </div>
         </div>
         <div v-if="isPending(activeBooking.fields.Status)" class="modal-actions">
           <button
@@ -609,6 +643,7 @@ import {
 import {
   listBookingsForEvent,
   setBookingStatus,
+  updateBookingFields,
   formatPaidAt,
   formatPhone,
 } from "../api/bookings.js";
@@ -634,6 +669,10 @@ const slipViewerUrl = ref("");
 const editingId = ref(null);
 const saving = ref(false);
 const busyId = ref(null);
+// Finance payment logging (pending bookings): transfer date + notes captured
+// when finance confirms over the phone.
+const bookPaidAt = ref("");
+const bookNotes = ref("");
 
 // ── Toast (visible feedback; save/poster errors were silently swallowed
 // before — console.error only). ────────────────────────────────────────────
@@ -1000,6 +1039,8 @@ const isPending = (s) => String(s || "").toLowerCase() === "pending";
 function openBooking(b) {
   activeBooking.value = b;
   slipViewerUrl.value = "";
+  bookPaidAt.value = String(b.fields.PaidAt || "").slice(0, 16);
+  bookNotes.value = String(b.fields.Notes || "");
 }
 
 function closeBooking() {
@@ -1017,13 +1058,41 @@ function openSlipViewer() {
   }
 }
 
+async function logPayment(b) {
+  busyId.value = b.id;
+  try {
+    const fields = {};
+    const paid = String(bookPaidAt.value || "").trim();
+    if (paid) fields.PaidAt = paid;
+    fields.Notes = bookNotes.value.trim() || null;
+    await updateBookingFields(b.id, fields);
+    b.fields.PaidAt = paid || b.fields.PaidAt;
+    b.fields.Notes = fields.Notes;
+    showToast(t("log_payment_saved"));
+  } catch (e) {
+    console.error(e);
+    showToast(t("save_failed"), "error");
+  } finally {
+    busyId.value = null;
+  }
+}
+
 async function confirmBooking(b) {
   busyId.value = b.id;
   try {
-    await setBookingStatus(b.id, "confirmed");
+    const fields = { Status: "confirmed" };
+    const paid = String(bookPaidAt.value || "").trim();
+    if (paid) fields.PaidAt = paid;
+    if (bookNotes.value !== undefined) {
+      fields.Notes = bookNotes.value.trim() || null;
+    }
+    await updateBookingFields(b.id, fields);
     b.fields.Status = "confirmed";
+    if (paid) b.fields.PaidAt = paid;
+    if (bookNotes.value !== undefined) b.fields.Notes = fields.Notes;
   } catch (e) {
     console.error(e);
+    showToast(t("save_failed"), "error");
   } finally {
     busyId.value = null;
   }
@@ -1722,6 +1791,52 @@ onMounted(async () => {
   font-family: monospace;
   font-size: 1rem;
   font-weight: 800;
+}
+/* Finance payment log (pending bookings): transfer date + notes + save */
+.finance-log {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  border-top: 1px solid var(--border);
+  margin-top: 0.4rem;
+  padding-top: 0.7rem;
+}
+.finance-log-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.finance-log-input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.45rem 0.6rem;
+  font-size: 0.9rem;
+  font-family: var(--font);
+  color-scheme: dark;
+  width: 100%;
+  box-sizing: border-box;
+}
+.finance-log-notes {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.45rem 0.6rem;
+  font-size: 0.88rem;
+  font-family: var(--font);
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+}
+.finance-log .btn {
+  align-self: flex-start;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.85rem;
 }
 .modal-actions {
   display: flex;

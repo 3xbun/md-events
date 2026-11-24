@@ -22,7 +22,7 @@
 
       <div v-if="statusKey === 'pending' && !confirmedJustNow" class="live-dot">
         <i class="fa-solid fa-circle-notch fa-spin"></i>
-        {{ t("checking_payment") }}
+        {{ isFinancePending ? t("finance_pending_check") : t("checking_payment") }}
       </div>
 
       <div class="code-box" v-if="booking">
@@ -64,10 +64,10 @@
         </div>
       </div>
 
-      <p v-if="statusKey === 'pending'" class="wait-note">
+      <p v-if="statusKey === 'pending' && !isFinancePending" class="wait-note">
         {{ t("wait_note") }}
       </p>
-      <p v-if="statusKey === 'pending'" class="expire-note">
+      <p v-if="statusKey === 'pending' && !isFinancePending" class="expire-note">
         <i class="fa-duotone fa-solid fa-clock"></i>
         {{ t("payment_expire_note") }}
       </p>
@@ -122,11 +122,21 @@ const statusTitleKey = computed(() => ({
   confirmed: "confirmed_title",
   cancelled: "cancelled_title",
 })[statusKey.value]);
-const statusNoteKey = computed(() => ({
-  pending: "pending_note",
-  confirmed: "confirmed_note",
-  cancelled: "cancelled_note",
-})[statusKey.value]);
+const statusNoteKey = computed(() => {
+  const k = {
+    pending: "pending_note",
+    confirmed: "confirmed_note",
+    cancelled: "cancelled_note",
+  }[statusKey.value];
+  // Finance-flow pending (no transfer date): note says finance will call.
+  if (statusKey.value === "pending" && isFinancePending.value) return "finance_pending_note";
+  return k;
+});
+// Finance-flow reservation: pending with NO customer-entered transfer date —
+// finance calls the customer and records the payment details in the admin.
+const isFinancePending = computed(
+  () => statusKey.value === "pending" && !String(booking.value?.fields?.PaidAt || "").trim()
+);
 
 function copyCode() {
   const code = booking.value?.fields?.BookingCode;

@@ -90,6 +90,17 @@ export const en = {
   slip_pick: "Take or choose a photo",
   slip_hint: "Attach a photo of the completed bank transfer slip.",
   slip_view: "View slip",
+  notes: "Notes",
+  log_payment: "Log payment",
+  log_payment_saved: "Payment details saved.",
+  confirm_reserve: "Reserve seats",
+  finance_reserve_note:
+    "Please reserve with your name and phone number. Our finance team will call you to give the payment instructions. Your seats are held until the booking is confirmed.",
+  finance_expire_note:
+    "If the booking is not confirmed within 3 days, it is automatically cancelled and the seats are released.",
+  finance_pending_check: "Waiting for our finance team to call you…",
+  finance_pending_note:
+    "Your seats are reserved. Our finance team will call you to arrange the payment.",
   processing: "Creating booking…",
   back_to_event: "Back to event",
   pending_title: "Booking pending payment",

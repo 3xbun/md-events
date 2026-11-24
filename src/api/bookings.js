@@ -203,6 +203,11 @@ export async function setBookingStatus(id, status) {
   });
 }
 
+/** Update any fields on a booking (e.g. finance logging PaidAt/Notes). */
+export async function updateBookingFields(id, fields) {
+  await axios.patch(url(), [{ id: Number(id), fields }], { headers: hdrs() });
+}
+
 export const STATUSES = { PENDING, CONFIRMED, CANCELLED, RESERVED, PAID };
 export const isPaidStatus = (s) =>
   ["pending", "confirmed", "paid"].includes(String(s || "").toLowerCase());
