@@ -487,6 +487,10 @@
               <span class="br-meta">
                 {{ b.fields._event }} · {{ Number(b.fields.Total) || 0 }} ฿
               </span>
+              <span v-if="b.fields.CreatedAt" class="br-created">
+                <i class="fa-duotone fa-solid fa-clock"></i>
+                {{ formatCreatedAt(b.fields.CreatedAt) }}
+              </span>
               <span v-if="b.fields.PaidAt" class="br-paid">
                 <i class="fa-duotone fa-solid fa-calendar-clock"></i>
                 {{ formatPaidAt(b.fields.PaidAt) }}
@@ -536,6 +540,10 @@
           <div class="md-row">
             <span>{{ t("amount_due") }}</span>
             <b>{{ Number(activeBooking.fields.Total) || 0 }} ฿</b>
+          </div>
+          <div v-if="activeBooking.fields.CreatedAt" class="md-row">
+            <span>{{ t("reserved_at") }}</span>
+            <b>{{ formatCreatedAt(activeBooking.fields.CreatedAt) }}</b>
           </div>
           <div v-if="activeBooking.fields.PaidAt" class="md-row md-row-paid">
             <span>
@@ -684,6 +692,7 @@ import {
   setBookingStatus,
   updateBookingFields,
   formatPaidAt,
+  formatCreatedAt,
   formatPhone,
 } from "../api/bookings.js";
 import {
@@ -1753,6 +1762,14 @@ onMounted(async () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.br-created {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-family: monospace;
 }
 .br-paid {
   display: inline-flex;

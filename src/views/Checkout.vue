@@ -339,7 +339,7 @@ async function pay() {
     let tail = "";
     for (let i = 0; i < 6; i++) tail += alpha[Math.floor(Math.random() * alpha.length)];
     const code = `ME-${tail}`;
-    await createBooking(event.value.id, {
+    const created = await createBooking(event.value.id, {
       CustomerName: form.name,
       Phone: formatPhone(form.phone),
       Seats: seats.value,
@@ -358,6 +358,7 @@ async function pay() {
       seats: [...seats.value],
       total: total.value,
       eventTitle: event.value?.fields?.Title || "",
+      createdAt: created?.fields?.CreatedAt || new Date().toISOString(),
     });
     clearSelection();
     router.push(`/confirmation/${code}`);

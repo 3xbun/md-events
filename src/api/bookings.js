@@ -188,6 +188,19 @@ export function formatPaidAt(raw) {
   return s.replace("T", " ").slice(0, 16);
 }
 
+/**
+ * Format a reservation timestamp (NocoDB CreatedAt ISO/UTC string or epoch ms)
+ * into local "YYYY-MM-DD HH:MM" for display.
+ */
+export function formatCreatedAt(raw) {
+  if (!raw && raw !== 0) return "";
+  const ms = typeof raw === "number" ? raw : parseCreatedMs(raw);
+  if (!Number.isFinite(ms)) return formatPaidAt(raw);
+  const d = new Date(ms);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 /** Format a phone string as xxx-xxx-xxxx (up to 10 digits). */
 export function formatPhone(raw) {
   const digits = String(raw || "").replace(/\D/g, "").slice(0, 10);

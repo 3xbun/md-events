@@ -21,6 +21,10 @@
             <span v-if="r.seats?.length" class="res-row-seats">
               {{ Array.isArray(r.seats) ? r.seats.join(", ") : r.seats }}
             </span>
+            <span v-if="r.createdAt || r.at" class="res-row-date">
+              <i class="fa-duotone fa-solid fa-clock"></i>
+              {{ formatCreatedAt(r.createdAt || r.at) }}
+            </span>
           </div>
           <span class="res-row-code">{{ r.code }}</span>
           <button
@@ -95,6 +99,10 @@
         <div class="detail">
           <span class="muted">{{ t("amount_due") }}</span>
           <span class="total">{{ Number(booking.fields.Total) || 0 }} ฿</span>
+        </div>
+        <div v-if="booking.fields.CreatedAt" class="detail">
+          <span class="muted">{{ t("reserved_at") }}</span>
+          <span class="reserved-at">{{ formatCreatedAt(booking.fields.CreatedAt) }}</span>
         </div>
         <div v-if="booking.fields.PaidAt" class="detail paid-at-detail">
           <span class="paid-at-head">
@@ -198,6 +206,7 @@ import {
   findBookingByCode,
   isConfirmedStatus,
   formatPaidAt,
+  formatCreatedAt,
 } from "../api/bookings.js";
 import {
   getMyReservations,
@@ -313,6 +322,7 @@ function saveHere() {
     name: f.CustomerName || f.BookingCode,
     seats: seatList.value,
     total: Number(f.Total) || 0,
+    createdAt: f.CreatedAt || new Date().toISOString(),
   });
   isMine.value = true;
   sentDone.value = false;
@@ -475,6 +485,20 @@ onBeforeUnmount(() => {
   font-size: 0.78rem;
   color: var(--accent-soft);
   font-weight: 600;
+}
+.res-row-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-family: monospace;
+}
+.reserved-at {
+  font-family: monospace;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
 }
 .res-row-code {
   font-family: monospace;

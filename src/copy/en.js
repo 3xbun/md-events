@@ -82,6 +82,7 @@ export const en = {
   bank_transfer_to:
     "Transfer the exact amount, fill in the transfer date & time, then press the button below. Your seats are held while we verify the payment.",
   paid_at: "Transfer date & time",
+  reserved_at: "Reservation date",
   payment_expire_note:
     "If payment is not verified within 3 days, the booking is automatically cancelled and the seats are released.",
   copy_bank: "Copy",
