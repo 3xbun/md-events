@@ -10,6 +10,7 @@ const routes = [
   { path: "/", name: "home", component: Home },
   { path: "/event/:id", name: "event", component: EventDetail },
   { path: "/checkout/:id", name: "checkout", component: Checkout },
+  { path: "/confirmation", name: "my-reservations", component: Confirmation },
   { path: "/confirmation/:code", name: "confirmation", component: Confirmation },
   { path: "/admin", name: "admin", component: Admin },
 ];

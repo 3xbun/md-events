@@ -180,6 +180,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "../i18n.js";
 import { getEvent } from "../api/events.js";
 import { createBooking, formatPhone } from "../api/bookings.js";
+import { saveMyReservation } from "../api/myReservation.js";
 import { getSelection, clearSelection } from "../selection.js";
 import {
   totalForSeats,
@@ -350,6 +351,13 @@ async function pay() {
       // payment details later (admin) once the customer pays.
       PaidAt: financeFlow.value ? null : String(form.paidAt || "").trim(),
       Slip: financeFlow.value ? null : slipUrl.value || null,
+    });
+    saveMyReservation({
+      code,
+      name: form.name,
+      seats: [...seats.value],
+      total: total.value,
+      eventTitle: event.value?.fields?.Title || "",
     });
     clearSelection();
     router.push(`/confirmation/${code}`);

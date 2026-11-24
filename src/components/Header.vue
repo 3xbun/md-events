@@ -5,6 +5,14 @@
       <span class="brand-name">{{ t("app_title") }}</span>
     </router-link>
     <div class="header-right">
+      <router-link
+        v-if="myRes && !$route.path.startsWith('/confirmation')"
+        to="/confirmation"
+        class="my-res-btn"
+      >
+        <i class="fa-duotone fa-solid fa-ticket"></i>
+        <span>{{ t("my_reservation") }}</span>
+      </router-link>
       <div class="lang-toggle" role="group" aria-label="language">
         <button
           class="lang-btn"
@@ -29,9 +37,29 @@
 </template>
 
 <script setup>
-import { i18n } from "../i18n.js";
-import { useI18n } from "../i18n.js";
+import { ref, watch, onUnmounted } from "vue";
+import { useRoute } from "vue-router";
+import { i18n, useI18n } from "../i18n.js";
+import { getLatestReservation } from "../api/myReservation.js";
+
 const { t } = useI18n();
+const route = useRoute();
+const myRes = ref(getLatestReservation());
+
+const refresh = () => {
+  myRes.value = getLatestReservation();
+};
+
+watch(() => route.fullPath, refresh);
+const onStorage = (e) => {
+  if (!e?.key || e.key === "md-events.reservations") refresh();
+};
+window.addEventListener("storage", onStorage);
+window.addEventListener("md-reservation-change", refresh);
+onUnmounted(() => {
+  window.removeEventListener("storage", onStorage);
+  window.removeEventListener("md-reservation-change", refresh);
+});
 </script>
 
 <style scoped>
@@ -64,7 +92,25 @@ const { t } = useI18n();
 .header-right {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
+  gap: 0.65rem;
+}
+.my-res-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #06121f;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.my-res-btn:hover {
+  transform: translateY(-1px);
+  opacity: 0.95;
 }
 .lang-toggle {
   display: flex;
@@ -95,5 +141,14 @@ const { t } = useI18n();
 }
 .admin-link:hover {
   color: var(--text);
+}
+@media (max-width: 520px) {
+  .my-res-btn span {
+    display: none;
+  }
+  .my-res-btn {
+    padding: 0.4rem 0.55rem;
+    gap: 0;
+  }
 }
 </style>
