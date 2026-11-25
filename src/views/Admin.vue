@@ -263,6 +263,23 @@
           </div>
         </div>
 
+        <!-- finance payment instructions (replaces "finance will call") -->
+        <div class="zones-box finance-instr-box">
+          <div class="zones-head">
+            <span class="section-title">
+              <i class="fa-duotone fa-solid fa-circle-info"></i>
+              {{ t("finance_instructions_title") }}
+            </span>
+          </div>
+          <p class="hint">{{ t("finance_instructions_hint") }}</p>
+          <textarea
+            v-model="form.FinanceInstructions"
+            class="finance-instr-input"
+            rows="5"
+            :placeholder="t('finance_instructions_placeholder')"
+          ></textarea>
+        </div>
+
         <!-- seat rules editor: paint individual seats on the live preview -->
         <div class="zones-box">
           <div class="zones-head">
@@ -832,6 +849,7 @@ const emptyForm = () => ({
   MaxSeats: 8,
   IsActive: true,
   Zones: [],
+  FinanceInstructions: "",
   // Per-seat rules (see price.js): SeatOverrides = {seat:{Price,SaleStarts}},
   // Bundles = [{Seats:[..],Price}].
   Overrides: {},
@@ -1349,6 +1367,7 @@ async function duplicate(ev) {
     Poster: f.Poster || null,
     SeatOverrides: f.SeatOverrides || null,
     Bundles: f.Bundles || null,
+    FinanceInstructions: f.FinanceInstructions || null,
     IsActive: true,
   };
   if (Number(f.TotalRows)) fields.TotalRows = Number(f.TotalRows);
@@ -1490,6 +1509,7 @@ function edit(ev) {
   form.MaxColumn = Number(ev.fields.MaxColumn) || 26;
   form.MaxSeats = Number(ev.fields.MaxSeats) || 8;
   form.IsActive = Boolean(ev.fields.IsActive);
+  form.FinanceInstructions = String(ev.fields.FinanceInstructions || "");
   form.Zones = parseZonesField(ev.fields.Zones);
   form.Overrides = parseOverridesField(ev.fields.SeatOverrides);
   form.Bundles = parseBundlesField(ev.fields.Bundles);
@@ -1526,6 +1546,7 @@ async function save() {
       IsActive: Boolean(form.IsActive),
       SeatOverrides: serializeOverrides(),
       Bundles: serializeBundles(),
+      FinanceInstructions: String(form.FinanceInstructions || "").trim() || null,
       Zones: form.Zones.length
         ? JSON.stringify(
             form.Zones
@@ -2052,6 +2073,24 @@ onMounted(async () => {
   padding: 0.3rem 0.55rem;
   cursor: pointer;
   white-space: nowrap;
+}
+.finance-instr-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  padding: 0.6rem 0.7rem;
+  resize: vertical;
+  min-height: 4rem;
+}
+.finance-instr-input:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 .zone-finance-toggle input {
   width: auto;

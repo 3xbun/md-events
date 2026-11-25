@@ -79,6 +79,16 @@ export function isFinanceCallSeat(event, label) {
   return false;
 }
 
+/**
+ * Finance payment instructions for an event (events.FinanceInstructions,
+ * editable free text with line breaks). Finance no longer calls customers —
+ * this text is shown instead of the "finance will call" notice. Empty
+ * string when unset (UI then falls back to the generic notice).
+ */
+export function financeInstructionsOf(event) {
+  return String(event?.fields?.FinanceInstructions || "").trim();
+}
+
 // ── Per-seat rules (overrides + bundles) ──────────────────────────────
 //
 // `SeatOverrides` (LongText, JSON object keyed by seat label):

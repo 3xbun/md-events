@@ -74,6 +74,16 @@
         {{ isFinancePending ? t("finance_pending_check") : t("checking_payment") }}
       </div>
 
+      <!-- Finance flow: the event's editable payment instructions replace the
+           "finance will call" notice (also shown at checkout). -->
+      <div v-if="isFinancePending && financeInstructions" class="finance-instructions">
+        <p class="finance-instr-label">
+          <i class="fa-duotone fa-solid fa-circle-info"></i>
+          {{ t("finance_instructions_label") }}
+        </p>
+        <div class="finance-instr-body" v-html="financeInstructionsHtml"></div>
+      </div>
+
       <div class="code-box" v-if="booking">
         <span class="muted">{{ t("booking_code") }}</span>
         <div class="code-row">
@@ -217,6 +227,8 @@ import {
   formatPaidAt,
   formatCreatedAt,
 } from "../api/bookings.js";
+import { getEvent } from "../api/events.js";
+import { financeInstructionsOf } from "../price.js";
 import {
   getMyReservations,
   hasMyReservation,
@@ -228,6 +240,7 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const booking = ref(null);
+const event = ref(null);
 const loaded = ref(false);
 const copied = ref(false);
 const linkCopied = ref(false);
@@ -290,10 +303,31 @@ const statusNoteKey = computed(() => {
   return k;
 });
 // Finance-flow reservation: pending with NO customer-entered transfer date —
-// finance calls the customer and records the payment details in the admin.
+// finance records the payment details in the admin (no call anymore — the
+// event's editable instructions are shown instead).
 const isFinancePending = computed(
   () => statusKey.value === "pending" && !String(booking.value?.fields?.PaidAt || "").trim()
 );
+
+// Editable payment instructions from the booking's event (fetched once).
+const financeInstructions = computed(() => financeInstructionsOf(event.value));
+const financeInstructionsHtml = computed(() =>
+  financeInstructions.value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\r?\n/g, "<br>")
+);
+
+async function loadEvent() {
+  const eventId = booking.value?.fields?.EventId;
+  if (!eventId || event.value) return;
+  try {
+    event.value = await getEvent(eventId);
+  } catch {
+    console.error("event fetch failed");
+  }
+}
 
 function copyCode() {
   const code = booking.value?.fields?.BookingCode;
@@ -420,12 +454,14 @@ async function load(codeParam) {
     return;
   }
   isMine.value = hasMyReservation(code);
+  event.value = null; // re-fetch the event for its payment instructions
   try {
     booking.value = await findBookingByCode(code);
   } catch (e) {
     console.error(e);
   }
   loaded.value = true;
+  loadEvent(); // editable payment instructions (finance flow)
   if (booking.value && statusKey.value === "pending") startPoll();
 }
 watch(
@@ -751,6 +787,29 @@ onBeforeUnmount(() => {
   font-size: 0.82rem;
   margin: 0;
   text-align: center;
+}
+.finance-instructions {
+  width: 100%;
+  background: rgba(58, 151, 222, 0.12);
+  border: 1.5px solid rgba(58, 151, 222, 0.45);
+  border-radius: 10px;
+  padding: 0.7rem 0.75rem;
+}
+.finance-instr-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--accent-soft);
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin: 0 0 0.45rem;
+}
+.finance-instr-body {
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  white-space: normal;
+  word-break: break-word;
 }
 .paid-at-detail {
   background: rgba(212, 160, 23, 0.12);

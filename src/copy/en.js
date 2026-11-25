@@ -96,15 +96,19 @@ export const en = {
   log_payment_saved: "Payment details saved.",
   finance_call_zone: "Finance call",
   finance_call_zone_hint:
-    "Reserve without showing bank details; finance calls customer to arrange payment",
+    "Reserve without showing bank details; payment instructions are shown instead of bank transfer",
+  finance_instructions_title: "Finance payment instructions",
+  finance_instructions_hint:
+    "Shown on checkout and confirmation for finance-flow seats. Editable; line breaks allowed. Leave empty to show the default notice.",
+  finance_instructions_placeholder: "Payment instructions for the customer…",
+  finance_instructions_label: "Payment instructions",
   confirm_reserve: "Reserve seats",
   finance_reserve_note:
-    "Please reserve with your name and phone number. Our finance team will call you to give the payment instructions. Your seats are held until the booking is confirmed.",
+    "Please reserve with your name and phone number. Your seats are held until the booking is confirmed.",
   finance_expire_note:
     "If the booking is not confirmed within 3 days, it is automatically cancelled and the seats are released.",
-  finance_pending_check: "Waiting for our finance team to call you…",
-  finance_pending_note:
-    "Your seats are reserved. Our finance team will call you to arrange the payment.",
+  finance_pending_check: "Booking pending confirmation…",
+  finance_pending_note: "Your seats are reserved. Please follow the payment instructions above.",
   processing: "Creating booking…",
   back_to_event: "Back to event",
   pending_title: "Booking pending payment",

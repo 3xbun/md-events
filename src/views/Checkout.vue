@@ -62,10 +62,17 @@
         </div>
 
         <!-- Finance flow (linked/bundle seats): no bank details shown at
-             reserve. Customer gives name + phone; finance calls them with
-             payment instructions and confirms the booking in the admin. -->
+             reserve. Customer gives name + phone. Finance no longer calls —
+             the event's editable payment instructions replace that notice. -->
         <div v-if="financeFlow" class="finance-box">
-          <p class="finance-note">
+          <div v-if="financeInstructions" class="finance-instructions">
+            <p class="finance-instr-label">
+              <i class="fa-duotone fa-solid fa-circle-info"></i>
+              {{ t("finance_instructions_label") }}
+            </p>
+            <div class="finance-instr-body" v-html="financeInstructionsHtml"></div>
+          </div>
+          <p v-else class="finance-note">
             <i class="fa-duotone fa-solid fa-phone-volume"></i>
             {{ t("finance_reserve_note") }}
           </p>
@@ -189,6 +196,7 @@ import {
   parseBundles,
   seatNotYetOnSale,
   isFinanceCallSeat,
+  financeInstructionsOf,
 } from "../price.js";
 import { fileToImage, encodeToDataUrl } from "../images.js";
 const { t } = useI18n();
@@ -279,6 +287,20 @@ const financeFlow = computed(() => {
     (s) => covered.has(s) || isFinanceCallSeat(event.value, s)
   );
 });
+
+// Editable payment instructions (event-level, admin sets in Admin.vue).
+// Replaces the old "finance will call you" notice. Plain text with line
+// breaks -> <br>; HTML-escaped first (v-html).
+const financeInstructions = computed(() =>
+  financeInstructionsOf(event.value)
+);
+const financeInstructionsHtml = computed(() =>
+  financeInstructions.value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\r?\n/g, "<br>")
+);
 
 // Summary chips: a fully-selected bundle collapses into ONE chip at the
 // bundle price; other seats price individually (override -> zone -> base).
@@ -520,6 +542,28 @@ onMounted(async () => {
 }
 .finance-note i {
   margin-top: 0.12rem;
+}
+.finance-instructions {
+  background: rgba(58, 151, 222, 0.12);
+  border: 1.5px solid rgba(58, 151, 222, 0.45);
+  border-radius: 9px;
+  padding: 0.7rem 0.75rem;
+}
+.finance-instr-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--accent-soft);
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin: 0 0 0.45rem;
+}
+.finance-instr-body {
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  white-space: normal;
+  word-break: break-word;
 }
 .finance-wait {
   display: flex;
