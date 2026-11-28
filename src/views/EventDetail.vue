@@ -46,9 +46,19 @@
           <i class="fa-duotone fa-solid fa-calendar"></i>
           <span>{{ saleBanner.text }}</span>
         </div>
+        <div v-if="financeMixWarn" class="finance-mix-warn">
+          <i class="fa-duotone fa-solid fa-ban"></i>
+          <span>{{ t("error_finance_mix") }}</span>
+        </div>
         <div class="map-head">
           <h2 class="section-title">{{ t("seat_map") }}</h2>
-          <span class="hint">{{ t("max_select_hint", { count: MAX_SELECT }) }}</span>
+          <span class="hint">
+            {{
+              financeLocked
+                ? t("finance_only_hint", { count: MAX_SELECT })
+                : t("max_select_hint", { count: MAX_SELECT })
+            }}
+          </span>
         </div>
         <div v-if="groups.length || reservedGroups.length" class="zone-legend">
           <span v-for="g in groups" :key="g.from" class="zone-chip">
@@ -138,6 +148,8 @@ import {
   seatPrice,
   parseBundles,
   lockedSaleSeats,
+  financeFlowOf,
+  isFinanceCallSeat,
 } from "../price.js";
 import { frontRowsOf, totalRowsOf, splitSeat } from "../layout.js";
 import { renderRichText } from "../richText.js";
@@ -160,6 +172,22 @@ const MAX_SELECT = computed(() => {
 // Tick so "not on sale yet" flips at the sale time without a reload.
 const nowTick = ref(Date.now());
 let tickTimer = null;
+
+// Mixed-selection guard: finance seats (FinanceCall zones / bundles) CANNOT be
+// mixed with normal seats in one booking. `financeMixWarn` is a transient,
+// self-clearing toast shown when a tap is blocked; `financeLocked` marks a
+// selection that is fully finance-flow, so the map hint switches wording.
+const financeMixWarn = ref(false);
+let financeMixTimer = null;
+function showFinanceMixWarn() {
+  financeMixWarn.value = true;
+  clearTimeout(financeMixTimer);
+  financeMixTimer = setTimeout(() => (financeMixWarn.value = false), 3000);
+}
+// True when the current selection is ALL finance-flow seats (no normal seats).
+const financeLocked = computed(() =>
+  selected.value.length > 0 && financeFlowOf(event.value, selected.value)
+);
 
 // Seats blocked by a staggered sale date (clock icon, unclickable).
 const lockedSeats = computed(() =>
@@ -263,8 +291,37 @@ const chipGroups = computed(() => {
 function onGridSelect(payload) {
   // payload: { seats: [...], remove: bool } — a bundle emits all its seats.
   const { seats, remove } = payload;
-  if (remove) {
+  // A tap on an already-selected seat toggles it off (SeatGrid emits its
+  // members); that's always allowed, even for a bundle straddling classes.
+  if (remove || seats.every((s) => selected.value.includes(s))) {
     selected.value = selected.value.filter((s) => !seats.includes(s));
+    return;
+  }
+  // Mixed-class guard: once a booking has a finance-flow seat, it may not
+  // gain a normal seat, and vice versa. A seat is "finance" if it is in a
+  // FinanceCall zone OR part of a bundle that is (fully) selected.
+  const isFinance = (s) => {
+    if (isFinanceCallSeat(event.value, s)) return true;
+    for (const b of parseBundles(event.value)) {
+      if (!b.seats.includes(s)) continue;
+      const fullySelected = b.seats.every(
+        (x) => selected.value.includes(x) || seats.includes(x)
+      );
+      if (fullySelected) return true; // this bundle reads as a finance unit
+    }
+    return false;
+  };
+  const incoming = seats.filter((s) => !selected.value.includes(s));
+  if (!incoming.length) return;
+  const incomingFinance = incoming.some(isFinance);
+  const incomingNormal = incoming.some((s) => !isFinance(s));
+  const hasFinance = selected.value.some(isFinance);
+  const hasNormal = selected.value.some((s) => !isFinance(s));
+  if (
+    (hasFinance && incomingNormal) ||
+    (hasNormal && incomingFinance)
+  ) {
+    showFinanceMixWarn();
     return;
   }
   const next = [...selected.value];
@@ -433,6 +490,40 @@ onBeforeUnmount(() => {
 }
 .sale-banner.future i {
   color: var(--pending);
+}
+/* Transient toast when a tap is blocked by the no-mix rule (finance seats
+   can't be combined with normal seats in one booking). Red/danger so it
+   reads as an error, not a sale-status banner. */
+.finance-mix-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin-bottom: 0.9rem;
+  padding: 0.6rem 0.95rem;
+  border-radius: 12px;
+  border: 1px solid var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.4;
+  animation: finmix-in 0.18s ease-out;
+}
+.finance-mix-warn i {
+  color: var(--danger);
+  font-size: 1rem;
+  flex: none;
+  margin-top: 0.1rem;
+}
+@keyframes finmix-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 .zone-opens {
   display: inline-flex;

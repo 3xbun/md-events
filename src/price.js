@@ -80,6 +80,27 @@ export function isFinanceCallSeat(event, label) {
 }
 
 /**
+ * True when EVERY seat in `seats` belongs to the finance flow — i.e. each
+ * seat is either part of a fully-selected bundle OR sits in a FinanceCall
+ * zone. Mixed selections (some finance + some normal) are NOT finance flow.
+ * Single source of truth shared by EventDetail (seat selection gating) and
+ * Checkout (which payment UI to show).
+ */
+export function financeFlowOf(event, seats) {
+  if (!event || !seats || !seats.length) return false;
+  const seatSet = new Set(seats);
+  const covered = new Set();
+  for (const b of parseBundles(event)) {
+    if (b.seats.every((s) => seatSet.has(s))) {
+      b.seats.forEach((s) => covered.add(s));
+    }
+  }
+  return seats.every(
+    (s) => covered.has(s) || isFinanceCallSeat(event, s)
+  );
+}
+
+/**
  * Finance payment instructions for an event (events.FinanceInstructions,
  * editable free text with line breaks). Finance no longer calls customers —
  * this text is shown instead of the "finance will call" notice. Empty

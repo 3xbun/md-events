@@ -61,9 +61,10 @@
           </div>
         </div>
 
-        <!-- Finance flow (linked/bundle seats): no bank details shown at
-             reserve. Customer gives name + phone. Finance no longer calls —
-             the event's editable payment instructions replace that notice. -->
+        <!-- Finance flow (linked/bundle seats OR FinanceCall zones): no bank
+             number / transfer-date shown at reserve. Customer gives name +
+             phone, sees the event's editable payment instructions, and
+             attaches a transfer slip. Finance confirms the booking in admin. -->
         <div v-if="financeFlow" class="finance-box">
           <div v-if="financeInstructions" class="finance-instructions">
             <p class="finance-instr-label">
@@ -76,6 +77,38 @@
             <i class="fa-duotone fa-solid fa-phone-volume"></i>
             {{ t("finance_reserve_note") }}
           </p>
+          <!-- Slip attachment (finance-call / bundle reserve): the customer
+               attaches proof of transfer so finance can verify without
+               calling. -->
+          <div class="slip-box">
+            <label class="slip-label" for="slip-file-finance">
+              <i class="fa-duotone fa-solid fa-file-invoice"></i>
+              {{ t("slip_label") }}
+            </label>
+            <p class="slip-hint">{{ t("slip_hint") }}</p>
+            <div v-if="!slipUrl" class="slip-drop">
+              <label class="slip-picker" :class="{ uploading: slipUploading }" for="slip-file-finance">
+                <i
+                  :class="slipUploading ? 'fa-solid fa-spinner fa-spin' : 'fa-duotone fa-solid fa-camera'"
+                ></i>
+                <span>{{ slipUploading ? t("processing") : t("slip_pick") }}</span>
+              </label>
+            </div>
+            <div v-else class="slip-preview">
+              <img :src="slipUrl" :alt="t('slip_label')" />
+              <button class="slip-remove" type="button" @click="clearSlip">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+            <input
+              id="slip-file-finance"
+              ref="slipInput"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/*"
+              hidden
+              @change="onSlipFile"
+            />
+          </div>
           <p class="finance-wait">
             <i class="fa-duotone fa-solid fa-clock"></i>
             {{ t("finance_expire_note") }}
@@ -159,7 +192,7 @@
             @change="onSlipFile"
           />
         </div>
-        <p v-if="!financeFlow" class="hint-line">{{ t("bank_transfer_to") }}</p>
+          <p v-if="!financeFlow" class="hint-line">{{ t("bank_transfer_to") }}</p>
         <p v-if="!financeFlow" class="expire-note">
           <i class="fa-duotone fa-solid fa-clock"></i>
           {{ t("payment_expire_note") }}
@@ -195,7 +228,7 @@ import {
   seatPrice,
   parseBundles,
   seatNotYetOnSale,
-  isFinanceCallSeat,
+  financeFlowOf,
   financeInstructionsOf,
 } from "../price.js";
 import { fileToImage, encodeToDataUrl } from "../images.js";
@@ -274,19 +307,13 @@ const total = computed(() => totalForSeats(event.value, seats.value));
 // Finance flow: every selected seat is either part of a complete bundle pair
 // OR sits in a finance-call zone (e.g. rows L–M). For these seats the customer
 // does NOT see bank details — they reserve with name + phone, and finance
-// calls them with payment instructions, then confirms the booking in the admin.
-const financeFlow = computed(() => {
-  if (!event.value || !seats.value.length) return false;
-  const bundles = parseBundles(event.value);
-  const seatSet = new Set(seats.value);
-  const covered = new Set();
-  for (const b of bundles) {
-    if (b.seats.every((s) => seatSet.has(s))) b.seats.forEach((s) => covered.add(s));
-  }
-  return seats.value.every(
-    (s) => covered.has(s) || isFinanceCallSeat(event.value, s)
-  );
-});
+// records the payment later in the admin.
+// NOTE: single source of truth is `financeFlowOf` in price.js — seat selection
+// in EventDetail is gated on the SAME predicate, so a mixed finance+normal
+// selection can never reach here (it's blocked at selection time).
+const financeFlow = computed(() =>
+  financeFlowOf(event.value, seats.value)
+);
 
 // Editable payment instructions (event-level, admin sets in Admin.vue).
 // Replaces the old "finance will call you" notice. Plain text with line
@@ -370,10 +397,11 @@ async function pay() {
       Total: total.value,
       Status: "pending",
       BookingCode: code,
-      // Finance flow: no transfer date/slip at reserve — finance logs the
-      // payment details later (admin) once the customer pays.
+      // Finance flow: no transfer DATE at reserve (finance records it later
+      // in admin), but the customer attaches a transfer slip here so finance
+      // has proof of payment up front.
       PaidAt: financeFlow.value ? null : String(form.paidAt || "").trim(),
-      Slip: financeFlow.value ? null : slipUrl.value || null,
+      Slip: slipUrl.value || null,
     });
     saveMyReservation({
       code,

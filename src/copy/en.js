@@ -64,6 +64,9 @@ export const en = {
   select_seats_hint: "Pick the seats you want",
   deselect: "Deselect",
   max_select_hint: "Up to {count} seats",
+  finance_only_hint: "Up to {count} seats · finance seats only",
+  error_finance_mix:
+    "Finance seats (or bundles) can't be mixed with regular seats in one booking. Clear your selection first, then pick only one type.",
   total_seats: "Total seats selected",
   clear_selection: "Clear",
   total_thb: "Total {count} baht",
