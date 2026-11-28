@@ -110,7 +110,9 @@ export async function occupiedSeats(eventId) {
 /**
  * Seat → status map for an event: { "A1": "pending" | "confirmed", ... }.
  * Only non-cancelled bookings; used to tint pending/confirmed seats on the
- * seat map.
+ * seat map. When a seat is covered by more than one booking (duplicate
+ * double-booking), CONFIRMED wins: a later pending booking must not downgrade
+ * an already-verified seat back to the pending clock badge.
  */
 export async function seatStates(eventId) {
   const recs = await listBookingsForEvent(eventId);
@@ -126,7 +128,12 @@ export async function seatStates(eventId) {
         arr = [];
       }
     }
-    if (Array.isArray(arr)) for (const s of arr) map[String(s).toUpperCase()] = st;
+    if (Array.isArray(arr))
+      for (const s of arr) {
+        const k = String(s).toUpperCase();
+        if (map[k] === CONFIRMED) continue; // confirmed beats pending
+        map[k] = st;
+      }
   }
   return map;
 }

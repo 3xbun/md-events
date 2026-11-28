@@ -44,6 +44,7 @@ export const en = {
   zone_opens: "opens {date}",
   sale_starts_short: "On sale",
   error_not_on_sale: "Some selected seats are not on sale yet. Go back and check the seat map.",
+  error_seats_taken: "Some selected seats have just been booked. Go back and pick different seats.",
   seat_rules: "Seat rules",
   seat_rules_hint:
     "Paint individual seats on the map below: premium prices, staggered sale dates, or seat bundles (clicking one seat books the pair).",

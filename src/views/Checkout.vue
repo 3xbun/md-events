@@ -220,7 +220,7 @@ import { ref, reactive, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "../i18n.js";
 import { getEvent } from "../api/events.js";
-import { createBooking, formatPhone } from "../api/bookings.js";
+import { createBooking, formatPhone, occupiedSeats } from "../api/bookings.js";
 import { saveMyReservation } from "../api/myReservation.js";
 import { getSelection, clearSelection } from "../selection.js";
 import {
@@ -384,6 +384,17 @@ async function pay() {
   paying.value = true;
   error.value = "";
   try {
+    // Guard: the seat map is a snapshot (no live polling) — a selected seat
+    // may have been booked by someone else since the map was loaded.
+    // Re-check occupancy right before creating the booking. A network
+    // failure falls through to the old behavior (availability over safety).
+    const taken = new Set(
+      (await occupiedSeats(event.value.id)).map((s) => String(s).toUpperCase())
+    );
+    if (seats.value.some((s) => taken.has(String(s).toUpperCase()))) {
+      error.value = t("error_seats_taken");
+      return;
+    }
     // Make up a booking code: ME-<6 alnum>.
     const alpha = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let tail = "";
